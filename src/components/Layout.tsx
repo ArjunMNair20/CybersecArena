@@ -1,25 +1,47 @@
-import { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
-import { Shield, Trophy, Newspaper, User, Gamepad2, ShieldAlert, Brain, Code, Mail, Terminal, BookOpen, Sparkles } from 'lucide-react';
+import { memo, useMemo, useState } from 'react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Shield, Trophy, Newspaper, User, Gamepad2, ShieldAlert, Brain, Code, Mail, Terminal, BookOpen, Sparkles, MessageSquare, LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import AudioControl from './AudioControl';
 import Matrix from './Matrix';
 import AICoach from './AICoach';
 
-const navItems = [
+type NavItem = {
+  to: string;
+  label: string;
+  icon: JSX.Element;
+};
+
+const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: <Gamepad2 size={18} /> },
   { to: '/ctf', label: 'CTF Challenges', icon: <Terminal size={18} /> },
   { to: '/phish-hunt', label: 'Phish Hunt', icon: <Mail size={18} /> },
   { to: '/code-and-secure', label: 'Code & Secure', icon: <Code size={18} /> },
   { to: '/firewall-defender', label: 'Firewall Defender', icon: <ShieldAlert size={18} /> },
   { to: '/ai-quizbot', label: 'AI Cyber QuizBot', icon: <Brain size={18} /> },
+  { to: '/chatbot', label: 'AI Chatbot', icon: <MessageSquare size={18} /> },
   { to: '/leaderboard', label: 'Leaderboard', icon: <Trophy size={18} /> },
   { to: '/news', label: 'News Feed', icon: <Newspaper size={18} /> },
   { to: '/tutorials', label: 'Tutorials', icon: <BookOpen size={18} /> },
   { to: '/profile', label: 'Profile', icon: <User size={18} /> },
 ];
 
-export default function Layout() {
+function Layout() {
   const [coachOpen, setCoachOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const navItems = useMemo(() => NAV_ITEMS, []);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Failed to logout:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0b0f1a] text-slate-200 grid md:grid-cols-[260px_1fr]">
       {/* Sidebar */}
@@ -50,7 +72,28 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="relative mt-auto">
+        <div className="relative mt-auto space-y-3">
+          {/* User Info */}
+          {user && (
+            <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-700/50">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-full bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center">
+                  <User size={16} className="text-cyan-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-200 truncate">{user.name || user.username}</p>
+                  <p className="text-xs text-slate-400 truncate">@{user.username}</p>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="w-full px-3 py-2 rounded-lg bg-red-500/10 border border-red-400/30 text-red-300 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2 text-sm"
+              >
+                <LogOut size={14} />
+                Logout
+              </button>
+            </div>
+          )}
           <AudioControl />
         </div>
       </aside>
@@ -65,6 +108,12 @@ export default function Layout() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {user && (
+              <div className="flex items-center gap-2 px-2 py-1 text-xs rounded bg-slate-800/50 border border-slate-700">
+                <User size={14} className="text-cyan-400" />
+                <span className="text-slate-300 truncate max-w-[100px]">{user.name || user.username}</span>
+              </div>
+            )}
             <button onClick={() => setCoachOpen(true)} className="px-2 py-1 text-xs rounded bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-400/30 flex items-center gap-1">
               <Sparkles size={14} /> Coach
             </button>
@@ -81,3 +130,5 @@ export default function Layout() {
     </div>
   );
 }
+
+export default memo(Layout);

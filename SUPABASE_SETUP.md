@@ -17,10 +17,16 @@ When Supabase is configured, you'll need to create these tables:
 ### 1. user_profiles
 ```sql
 CREATE TABLE user_profiles (
-  id uuid PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
+  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   username text UNIQUE NOT NULL,
+  name text,
+  email text NOT NULL,
+  avatar_url text,
+  bio text,
   created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
+  updated_at timestamptz DEFAULT now(),
+  CONSTRAINT username_length CHECK (char_length(username) >= 3),
+  CONSTRAINT username_format CHECK (username ~ '^[a-zA-Z0-9_]+$')
 );
 ```
 

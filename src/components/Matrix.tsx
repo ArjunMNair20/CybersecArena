@@ -4,14 +4,18 @@ export default function Matrix() {
   const ref = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
-    const canvas = ref.current!;
-    const ctx = canvas.getContext('2d')!;
+    const canvas = ref.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
     let animationFrame = 0;
     const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
 
     function resize() {
-      const { clientWidth, clientHeight } = canvas.parentElement!;
+      if (!canvas || !canvas.parentElement || !ctx) return;
+      const { clientWidth, clientHeight } = canvas.parentElement;
       canvas.width = clientWidth * dpr;
       canvas.height = clientHeight * dpr;
       canvas.style.width = clientWidth + 'px';
@@ -21,11 +25,12 @@ export default function Matrix() {
     resize();
     window.addEventListener('resize', resize);
 
-    const columns = Math.floor((canvas.width / dpr) / 16);
+    const columns = Math.floor(canvas.width / dpr / 16);
     const drops: number[] = new Array(columns).fill(0);
     const chars = '01░▒▓█'.split('');
 
     function draw() {
+      if (!canvas || !ctx) return;
       const w = canvas.width / dpr;
       const h = canvas.height / dpr;
 

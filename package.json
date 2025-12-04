@@ -6,6 +6,8 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
+    "dev:backend": "cd server && npm start",
+    "dev:full": "concurrently -k \"npm run dev\" \"npm run dev:backend\"",
     "dev:desktop": "concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
     "build": "vite build",
     "lint": "eslint .",

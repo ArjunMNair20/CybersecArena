@@ -1,6 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { IProgressStorage } from './IProgressStorage';
-import { ProgressState, defaultProgress } from '../../types/progress';
+import { ProgressState, Difficulty } from '../../types/progress';
 
 export class SupabaseStorageService implements IProgressStorage {
   private supabase: SupabaseClient;
@@ -16,7 +16,9 @@ export class SupabaseStorageService implements IProgressStorage {
 
       const { data, error } = await this.supabase
         .from('user_progress')
-        .select('*')
+        .select(
+          'ctf_solved_ids, phish_solved_ids, code_solved_ids, quiz_answered, quiz_correct, quiz_difficulty, firewall_best_score, badges',
+        )
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -30,7 +32,7 @@ export class SupabaseStorageService implements IProgressStorage {
         quiz: {
           answered: data.quiz_answered || 0,
           correct: data.quiz_correct || 0,
-          difficulty: (data.quiz_difficulty || 'easy') as 'easy' | 'medium' | 'hard',
+          difficulty: (data.quiz_difficulty || 'easy') as Difficulty,
         },
         firewall: { bestScore: data.firewall_best_score || 0 },
         badges: data.badges || [],

@@ -1,10 +1,9 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { ProgressState, defaultProgress } from '../types/progress';
 import { IProgressStorage } from '../services/storage/IProgressStorage';
-import { LocalStorageService } from '../services/storage/LocalStorageService';
 import { BadgeService } from '../services/BadgeService';
 import { ProgressCalculationService } from '../services/ProgressCalculationService';
-import { QuizDifficultyAdapter } from '../services/QuizDifficultyAdapter';
+import { createStorageService } from '../config/storage';
 
 export type { Difficulty } from '../types/progress';
 export { defaultProgress, type ProgressState } from '../types/progress';
@@ -16,6 +15,7 @@ export type ProgressContextType = {
   markPhishSolved: (id: string) => void;
   markCodeSolved: (id: string) => void;
   recordQuiz: (correct: boolean) => void;
+  setQuizDifficulty: (difficulty: Difficulty) => void;
   setFirewallBest: (score: number) => void;
   reset: () => void;
 };
@@ -38,12 +38,8 @@ interface ProgressProviderProps {
 }
 
 export function ProgressProvider({ children, storage }: ProgressProviderProps) {
-  const storageService = useMemo(
-    () => storage || new LocalStorageService(),
-    [storage]
-  );
+  const storageService = useMemo<IProgressStorage>(() => storage || createStorageService(), [storage]);
   const badgeService = useMemo(() => new BadgeService(), []);
-  const difficultyAdapter = useMemo(() => new QuizDifficultyAdapter(), []);
 
   const [state, setState] = useState<ProgressState>(() => defaultProgress);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -101,12 +97,16 @@ export function ProgressProvider({ children, storage }: ProgressProviderProps) {
         setState((s) => {
           const answered = s.quiz.answered + 1;
           const correctCount = s.quiz.correct + (correct ? 1 : 0);
-          const nextDiff = difficultyAdapter.adaptDifficulty(s.quiz.difficulty, correct);
           return {
             ...s,
-            quiz: { answered, correct: correctCount, difficulty: nextDiff },
+            quiz: { ...s.quiz, answered, correct: correctCount },
           };
         }),
+      setQuizDifficulty: (difficulty) =>
+        setState((s) => ({
+          ...s,
+          quiz: { ...s.quiz, difficulty },
+        })),
       setFirewallBest: (score) =>
         setState((s) => ({
           ...s,
@@ -117,7 +117,7 @@ export function ProgressProvider({ children, storage }: ProgressProviderProps) {
         storageService.clear();
       },
     }),
-    [state, difficultyAdapter, storageService]
+    [state, storageService]
   );
 
   return <ProgressContext.Provider value={api}>{children}</ProgressContext.Provider>;

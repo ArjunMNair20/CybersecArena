@@ -10,10 +10,13 @@ A unified AI-powered cybersecurity game hub with a sleek neon hacker theme. Buil
   - Code & Secure
   - Firewall Defender
   - AI Cyber QuizBot
+  - **AI Chatbot** - Local LLM-powered cybersecurity assistant
 - Leaderboard, News Feed, Tutorials, Profile pages
 - Ambient audio control (WebAudio drone) and neon theme
 
 ## Getting Started
+
+### Frontend Setup
 1. Install dependencies
    ```bash
    npm install
@@ -22,10 +25,40 @@ A unified AI-powered cybersecurity game hub with a sleek neon hacker theme. Buil
    ```bash
    npm run dev
    ```
-3. Optional: Desktop mode (Electron)
+
+### AI Chatbot Backend Setup
+The AI chatbot requires a separate backend server with a local LLM:
+
+1. Navigate to the server directory
    ```bash
-   npm run dev:desktop
+   cd server
    ```
+
+2. Install backend dependencies
+   ```bash
+   npm install
+   ```
+
+3. Start the backend server
+   ```bash
+   npm start
+   ```
+   The server will run on `http://localhost:3001`
+
+4. **First-time setup**: The AI model will be downloaded automatically on first run (approximately 500MB). This may take a few minutes.
+
+### Running Both Frontend and Backend Together
+To run both the frontend and backend simultaneously:
+```bash
+npm run dev:full
+```
+
+### Optional: Desktop mode (Electron)
+```bash
+npm run dev:desktop
+```
+
+> **Note**: Make sure the backend server is running before using the chatbot. The chatbot will show a connection status indicator.
 
 ## Next Steps
 - Implement real gameplay mechanics per mode
@@ -34,5 +67,17 @@ A unified AI-powered cybersecurity game hub with a sleek neon hacker theme. Buil
 - Add persistent settings (audio, theme), achievements, and badges
 
 ## Tech
-- React 18, TypeScript, Vite 5, Tailwind CSS
-- Electron (dev only, simple launcher)
+- **Frontend**: React 18, TypeScript, Vite 5, Tailwind CSS
+- **Backend**: Node.js, Express.js, @xenova/transformers (Local LLM)
+- **Desktop**: Electron (dev only, simple launcher)
+
+## AI Chatbot
+
+The application includes an AI-powered chatbot that uses a local Large Language Model (LLM) to answer cybersecurity questions. The chatbot:
+
+- Runs completely locally (no external API calls)
+- Answers questions about CTF challenges, secure coding, network security, and more
+- Maintains conversation context within each session
+- Includes a fallback system if the model fails to load
+
+See [server/README.md](server/README.md) for detailed backend documentation.

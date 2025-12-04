@@ -5,8 +5,13 @@
 /* Global neon hacker theme accents */
 html, body, #root {
   height: 100%;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
-body {
+
+/* Dark Theme (Default) */
+body,
+[data-theme="dark"] body,
+body[data-theme="dark"] {
   background-color: #0b0f1a;
   color: #e2e8f0; /* slate-200 */
   background-image:
@@ -14,6 +19,168 @@ body {
     linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
   background-size: 40px 40px, 40px 40px;
   background-position: 0 0, 0 0;
+}
+
+[data-theme="dark"],
+body[data-theme="dark"] {
+  --bg-primary: #0b0f1a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: rgba(255, 255, 255, 0.03);
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --border-color: #334155;
+  --accent-cyan: #08f7fe;
+  --accent-fuchsia: #f608f7;
+}
+
+/* Light Theme */
+[data-theme="light"] body,
+body[data-theme="light"] {
+  background-color: #f8fafc !important;
+  color: #1e293b !important;
+  background-image:
+    linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px) !important;
+  background-size: 40px 40px, 40px 40px;
+  background-position: 0 0, 0 0;
+}
+
+[data-theme="light"],
+body[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #e2e8f0;
+  --bg-tertiary: rgba(0, 0, 0, 0.03);
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --border-color: #cbd5e1;
+  --accent-cyan: #0891b2;
+  --accent-fuchsia: #a21caf;
+}
+
+/* Override common Tailwind classes for light theme */
+[data-theme="light"] .bg-\[#0b0f1a\],
+body[data-theme="light"] .bg-\[#0b0f1a\] {
+  background-color: #f8fafc !important;
+}
+
+[data-theme="light"] .text-slate-200,
+body[data-theme="light"] .text-slate-200 {
+  color: #1e293b !important;
+}
+
+[data-theme="light"] .text-slate-300,
+body[data-theme="light"] .text-slate-300 {
+  color: #1e293b !important;
+}
+
+[data-theme="light"] .text-slate-400,
+body[data-theme="light"] .text-slate-400 {
+  color: #475569 !important;
+}
+
+[data-theme="light"] .text-slate-500,
+body[data-theme="light"] .text-slate-500 {
+  color: #64748b !important;
+}
+
+[data-theme="light"] .border-slate-800,
+body[data-theme="light"] .border-slate-800 {
+  border-color: #cbd5e1 !important;
+}
+
+[data-theme="light"] .border-slate-700,
+body[data-theme="light"] .border-slate-700 {
+  border-color: #e2e8f0 !important;
+}
+
+[data-theme="light"] .bg-black\/20,
+body[data-theme="light"] .bg-black\/20 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] .bg-white\/\[0\.03\],
+body[data-theme="light"] .bg-white\/\[0\.03\] {
+  background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+[data-theme="light"] .bg-slate-800\/50,
+body[data-theme="light"] .bg-slate-800\/50 {
+  background-color: rgba(226, 232, 240, 0.5) !important;
+}
+
+[data-theme="light"] .bg-gradient-to-br,
+body[data-theme="light"] .bg-gradient-to-br {
+  background-image: linear-gradient(to bottom right, rgba(0, 0, 0, 0.03), rgba(0, 0, 0, 0.01)) !important;
+}
+
+/* Auto Theme - Follows System Preference */
+@media (prefers-color-scheme: light) {
+  [data-theme="auto"] body,
+  body[data-theme="auto"] {
+    background-color: #f8fafc !important;
+    color: #1e293b !important;
+    background-image:
+      linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px) !important;
+  }
+  
+  [data-theme="auto"],
+  body[data-theme="auto"] {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #e2e8f0;
+    --bg-tertiary: rgba(0, 0, 0, 0.03);
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
+    --border-color: #cbd5e1;
+    --accent-cyan: #0891b2;
+    --accent-fuchsia: #a21caf;
+  }
+  
+  /* Apply light theme styles when auto detects light */
+  [data-theme="auto"] .bg-\[#0b0f1a\],
+  body[data-theme="auto"] .bg-\[#0b0f1a\] {
+    background-color: #f8fafc !important;
+  }
+  
+  [data-theme="auto"] .text-slate-200,
+  body[data-theme="auto"] .text-slate-200,
+  [data-theme="auto"] .text-slate-300,
+  body[data-theme="auto"] .text-slate-300 {
+    color: #1e293b !important;
+  }
+  
+  [data-theme="auto"] .text-slate-400,
+  body[data-theme="auto"] .text-slate-400 {
+    color: #475569 !important;
+  }
+  
+  [data-theme="auto"] .border-slate-800,
+  body[data-theme="auto"] .border-slate-800 {
+    border-color: #cbd5e1 !important;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] body,
+  body[data-theme="auto"] {
+    background-color: #0b0f1a !important;
+    color: #e2e8f0 !important;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px) !important;
+  }
+  
+  [data-theme="auto"],
+  body[data-theme="auto"] {
+    --bg-primary: #0b0f1a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: rgba(255, 255, 255, 0.03);
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --border-color: #334155;
+    --accent-cyan: #08f7fe;
+    --accent-fuchsia: #f608f7;
+  }
 }
 
 /* Subtle glitch text effect helper */
@@ -30,3 +197,39 @@ body {
 }
 .glitch::before { color: #08f7fe; transform: translateX(-1px); opacity: .6; }
 .glitch::after { color: #f608f7; transform: translateX(1px); opacity: .5; }
+
+/* Accessibility - High Contrast */
+.high-contrast {
+  --bg-primary: #000000;
+  --bg-secondary: #1a1a1a;
+  --text-primary: #ffffff;
+  --text-secondary: #cccccc;
+  --border-color: #ffffff;
+}
+
+.high-contrast body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Accessibility - Reduce Motion */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* Font Size Accessibility */
+[data-font-size="small"] {
+  font-size: 0.875rem;
+}
+
+[data-font-size="medium"] {
+  font-size: 1rem;
+}
+
+[data-font-size="large"] {
+  font-size: 1.125rem;
+}
