@@ -1180,10 +1180,10 @@ app.post('/api/threat-radar', (req, res) => {
       detectedSymptoms = [];
     }
 
-    // Perform threat analysis (works with or without detected symptoms)
+    // Perform threat analysis with user input for contextual recommendations
     let analysis;
     try {
-      analysis = analyzeThreatProfile(detectedSymptoms);
+      analysis = analyzeThreatProfile(detectedSymptoms, symptoms);
     } catch (err) {
       console.error('Error analyzing threat profile:', err);
       // Return a safe fallback response
@@ -1205,6 +1205,46 @@ app.post('/api/threat-radar', (req, res) => {
     res.status(500).json({ 
       error: 'Failed to analyze threats', 
       message: error.message 
+    });
+  }
+});
+
+// Delete Account Endpoint
+app.post('/api/auth/delete-account', async (req, res) => {
+  try {
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ message: 'Password is required' });
+    }
+
+    // Get the current user from auth headers
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const token = authHeader.substring(7);
+
+    // Note: This is a simplified endpoint. In production, you would:
+    // 1. Verify the token with Supabase
+    // 2. Get the user ID from the token
+    // 3. Verify the password by attempting to re-authenticate
+    // 4. Delete all user data from the database
+    // 5. Delete the auth user
+
+    // For now, we'll return a message indicating the client should handle this
+    // The actual deletion happens on the client side via authService.deleteAccount()
+    
+    res.json({ 
+      success: true, 
+      message: 'Account deletion initiated. Please complete the process in your auth provider.' 
+    });
+  } catch (error) {
+    console.error('Error in delete account endpoint:', error);
+    res.status(500).json({ 
+      message: 'Failed to delete account',
+      error: error.message 
     });
   }
 });

@@ -410,16 +410,142 @@ export function calculateOverallRisk(threats) {
 }
 
 /**
+ * Generate contextual mitigation strategies based on specific threats and user symptoms
+ */
+function generateContextualStrategies(symptoms, threats, userInput) {
+  const contextualStrategies = [];
+  const lowerInput = userInput.toLowerCase();
+  const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+
+  // For EACH threat (not just top 3), generate specific strategies
+  for (let i = 0; i < threats.length; i++) {
+    const threat = threats[i];
+    const threatType = threat.threat_type;
+    const threatName = threat.threat;
+    
+    // Start with base strategies for this threat type
+    const baseStrategies = MITIGATION_STRATEGIES[threatType] || [];
+
+    // Generate contextual strategies based on detected symptoms
+    const additionalStrategies = [];
+
+    // Ransomware-specific strategies
+    if (threatType === 'ransomware' && lowerInput.includes('encrypt')) {
+      additionalStrategies.push({
+        priority: 'critical',
+        action: 'Check File Encryption Status',
+        details: `Since you mentioned file encryption issues, verify which files are encrypted. Check for unusual file extensions like .locked, .encrypted, or random strings. List encrypted files to determine ransom scope.`,
+      });
+      additionalStrategies.push({
+        priority: 'high',
+        action: 'Locate Ransom Note',
+        details: `Search for ransom note files (usually named DECRYPT_ME.txt, HELPME.txt, etc.) on desktop and document folders to understand attacker demands and contact information.`,
+      });
+    }
+
+    // Spyware/Keylogger specifics
+    if ((threatType === 'spyware' || threatType === 'keylogger') && 
+        (lowerInput.includes('slow') || lowerInput.includes('lag') || lowerInput.includes('freeze'))) {
+      additionalStrategies.push({
+        priority: 'high',
+        action: 'Monitor CPU/Memory Usage',
+        details: `Your system is experiencing performance issues. Open Task Manager, go to Performance tab, and identify processes consuming high CPU/memory. Look for unknown processes using unusual resources.`,
+      });
+    }
+
+    if ((threatType === 'keylogger' || threatType === 'rat') && 
+        (lowerInput.includes('password') || lowerInput.includes('account') || lowerInput.includes('login'))) {
+      additionalStrategies.push({
+        priority: 'critical',
+        action: 'Secure Password Reset',
+        details: `Given potential keylogger or RAT, immediately change ALL passwords from a different clean device. Use unique, complex passwords (16+ characters with mixed case, numbers, symbols). Enable 2FA on all critical accounts.`,
+      });
+      additionalStrategies.push({
+        priority: 'high',
+        action: 'Monitor Account Activity',
+        details: `Check recent login history on email, banking, and social media accounts. Look for unfamiliar login locations, devices, or times. Revoke old sessions and enable suspicious login alerts.`,
+      });
+    }
+
+    // Network/Botnet specifics
+    if (threatType === 'botnet' && (lowerInput.includes('network') || lowerInput.includes('connection'))) {
+      additionalStrategies.push({
+        priority: 'critical',
+        action: 'Analyze Network Connections',
+        details: `Check active network connections using 'netstat -an' (Windows) or 'ss -an' (Linux). Identify and block suspicious IP addresses and ports. Look for connections to known botnet C&C servers.`,
+      });
+    }
+
+    // Browser/Adware specifics
+    if ((threatType === 'adware' || threatType === 'trojan') && 
+        (lowerInput.includes('popup') || lowerInput.includes('ads') || lowerInput.includes('redirect') || lowerInput.includes('homepage'))) {
+      additionalStrategies.push({
+        priority: 'high',
+        action: 'Reset Browser Completely',
+        details: `Since you're experiencing ads/popups/redirects: Reset browser to defaults, clear all cache/cookies/history, remove all extensions, and check startup pages. Reset homepage and search engine settings.`,
+      });
+      additionalStrategies.push({
+        priority: 'high',
+        action: 'Check Hosts File',
+        details: `Malware may have modified your hosts file to redirect domains. Check C:\\Windows\\System32\\drivers\\etc\\hosts (Windows) for unusual entries. Remove any suspicious domain redirections.`,
+      });
+    }
+
+    // Combine base and contextual strategies
+    const allStrategies = [...baseStrategies, ...additionalStrategies];
+    
+    // Deduplicate
+    const uniqueStrategies = new Map();
+    for (const strategy of allStrategies) {
+      if (!uniqueStrategies.has(strategy.action)) {
+        uniqueStrategies.set(strategy.action, strategy);
+      }
+    }
+
+    // Add threat-specific context to each strategy
+    for (const [action, strategy] of uniqueStrategies) {
+      contextualStrategies.push({
+        action: strategy.action,
+        priority: strategy.priority,
+        details: `[To protect against ${threatName}] ${strategy.details}`,
+        threat_context: threatName
+      });
+    }
+  }
+
+  // Deduplicate across all threats and prioritize
+  const finalStrategies = new Map();
+  for (const strategy of contextualStrategies) {
+    const existing = finalStrategies.get(strategy.action);
+    if (!existing || priorityOrder[strategy.priority] < priorityOrder[existing.priority]) {
+      finalStrategies.set(strategy.action, strategy);
+    }
+  }
+
+  // Convert to numbered steps (keep all relevant recommendations, don't limit)
+  const sortedStrategies = Array.from(finalStrategies.values()).sort(
+    (a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]
+  );
+
+  return sortedStrategies.map((strategy, idx) => ({
+    step: idx + 1,
+    action: strategy.action,
+    priority: strategy.priority,
+    details: strategy.details
+  }));
+}
+
+/**
  * Generate detailed threat analysis
  */
-export function analyzeThreatProfile(symptoms) {
+export function analyzeThreatProfile(symptoms, userInput = '') {
   // Extract and deduplicate symptoms
   const detectedSymptoms = [...new Set(symptoms)];
 
   // Calculate threat probabilities
   const probabilities = calculateThreatProbabilities(detectedSymptoms);
 
-  // Filter threats with probability > 0 and create threat objects
+  // Filter threats with probability > 0 and create threat objects (show ALL threats)
   const threats = Object.entries(probabilities)
     .filter(([_, prob]) => prob > 0)
     .map(([threatType, probability]) => {
@@ -438,8 +564,7 @@ export function analyzeThreatProfile(symptoms) {
       };
     })
     .filter(t => t !== null)
-    .sort((a, b) => b.probability - a.probability)
-    .slice(0, 10); // Limit to top 10 threats
+    .sort((a, b) => b.probability - a.probability); // Sort by probability, show all detected threats
 
   // Calculate overall risk
   const { level: riskLevel, percentage: riskPercentage } = calculateOverallRisk(threats);
@@ -461,41 +586,8 @@ export function analyzeThreatProfile(symptoms) {
     explanation = `LOW RISK: Minor threat indicators detected. Continue monitoring system performance and keep security software updated.`;
   }
 
-  // Generate mitigation strategies - limit to 5-6 most critical steps
-  const mitigationStrategies = [];
-  const allStrategies = [];
-
-  // Collect strategies from top 3 threats
-  for (let i = 0; i < Math.min(3, threats.length); i++) {
-    const threatType = threats[i].threat_type;
-    const strategies = MITIGATION_STRATEGIES[threatType] || [];
-    allStrategies.push(...strategies);
-  }
-
-  // Deduplicate by action and prioritize
-  const uniqueStrategies = new Map();
-  const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-
-  for (const strategy of allStrategies) {
-    const existing = uniqueStrategies.get(strategy.action);
-    if (!existing || priorityOrder[strategy.priority] < priorityOrder[existing.priority]) {
-      uniqueStrategies.set(strategy.action, strategy);
-    }
-  }
-
-  // Sort by priority and convert to numbered steps - LIMIT TO 5-6
-  const sortedStrategies = Array.from(uniqueStrategies.values()).sort(
-    (a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]
-  ).slice(0, 6); // LIMIT TO 6 TOP RECOMMENDATIONS
-
-  sortedStrategies.forEach((strategy, idx) => {
-    mitigationStrategies.push({
-      step: idx + 1,
-      action: strategy.action,
-      priority: strategy.priority,
-      details: strategy.details
-    });
-  });
+  // Generate contextual mitigation strategies based on threats and user input
+  const mitigationStrategies = generateContextualStrategies(detectedSymptoms, threats, userInput);
 
   return {
     detected_symptoms: detectedSymptoms,

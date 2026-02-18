@@ -14,8 +14,11 @@ export default function NewsFeed() {
 
   // Load news immediately on mount and in background
   useEffect(() => {
-    // Show cached data immediately (loading = false)
-    loadNewsWithCache(true);
+    // Load cached data immediately without forcing refresh
+    loadNewsWithCache(false);
+    
+    // Then fetch fresh data in background
+    loadNewsInBackground();
 
     // Set up auto-refresh interval if enabled
     if (autoRefreshEnabled) {
@@ -48,14 +51,9 @@ export default function NewsFeed() {
   // Load news with cache first (immediate display), then fetch fresh
   const loadNewsWithCache = async (forceRefresh: boolean = false) => {
     try {
-      // Show loading only for forced refresh
-      if (forceRefresh) {
-        setLoading(true);
-      }
-      
       setError(null);
       
-      // Fetch news (returns cache immediately, fetches in background)
+      // Fetch news (returns cache immediately if available, fetches in background)
       const news = await newsService.getCybersecurityNews(30, forceRefresh);
       
       if (news.length > 0) {
@@ -67,8 +65,9 @@ export default function NewsFeed() {
           second: '2-digit'
         }));
       }
-    } catch (err: any) {
-      const errorMessage = err?.message || 'Unknown error';
+    } catch (err: unknown) {
+      const error = err as Error;
+      const errorMessage = error?.message || 'Unknown error';
       console.error('News loading error:', err);
       
       if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
@@ -133,7 +132,10 @@ export default function NewsFeed() {
         </div>
         <div className="flex flex-col gap-2">
           <button
-            onClick={() => loadNewsWithCache(true)}
+            onClick={() => {
+              setLoading(true);
+              loadNewsWithCache(true);
+            }}
             disabled={loading}
             className="px-4 py-2 rounded-lg bg-[#A78BFA]/20 border border-[#A78BFA]/30 text-[#A78BFA] hover:bg-purple-500/30 disabled:opacity-50 transition-colors flex items-center gap-2"
           >

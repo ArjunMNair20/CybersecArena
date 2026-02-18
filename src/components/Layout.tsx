@@ -19,6 +19,7 @@ type NavItem = {
 // Grouped nav arrays so we can render visual separators between sections
 const GAMES_NAV: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: <Gamepad2 size={18} /> },
+  { to: '/weekly-challenge', label: 'Weekly Challenge', icon: <Trophy size={18} /> },
   { to: '/ctf', label: 'CTF Challenges', icon: <Terminal size={18} /> },
   { to: '/phish-hunt', label: 'Phish Hunt', icon: <Mail size={18} /> },
   { to: '/code-and-secure', label: 'Code & Secure', icon: <Code size={18} /> },
@@ -41,6 +42,7 @@ const INFO_NAV: NavItem[] = [
 // Prefetch map: preloads route chunks on hover/focus to reduce perceived latency
 const PREFETCH_MAP: Record<string, () => Promise<any>> = {
   '/': () => import('../pages/Dashboard'),
+  '/weekly-challenge': () => import('../pages/WeeklyChallenge'),
   '/ctf': () => import('../pages/CTF'),
   '/phish-hunt': () => import('../pages/PhishHunt'),
   '/threat-radar': () => import('../pages/CyberHealthAnalyzer'),
@@ -69,7 +71,7 @@ function Layout() {
     }
   }, [newBadges]);
 
-  // Sync progress to leaderboard in real-time
+  // Sync progress to leaderboard in real-time with aggressive debouncing
   useEffect(() => {
     if (!user) return;
 
@@ -77,9 +79,11 @@ function Layout() {
     
     const sync = () => {
       clearTimeout(syncTimeout);
+      // Sync immediately on first change, then debounce at 100ms for rapid changes
       syncTimeout = setTimeout(() => {
+        console.log('[Layout] Real-time sync triggered for user:', user.username);
         syncToLeaderboard(user);
-      }, 500);
+      }, 100);
     };
 
     sync();
@@ -122,13 +126,13 @@ function Layout() {
         <div className="absolute -top-40 -left-40 w-80 h-80 rounded-full opacity-20 blur-3xl pointer-events-none" style={{ background: 'linear-gradient(135deg, #06b6d4, #0284c7)' }} />
         
         <div className="relative">
-          <div className="sidebar-brand">
-            <div className="brand-icon p-2.5 rounded-lg bg-gradient-to-br from-[#06b6d4] via-[#0284c7] to-[#0ea5e9] shadow-lg shadow-[#06b6d4]/60">
-              <Fingerprint className="text-white" size={22} strokeWidth={2.5} />
+          <div className="sidebar-brand flex items-center gap-3">
+            <div className="brand-icon p-2.5 rounded-lg bg-gradient-to-br from-[#06b6d4] via-[#0284c7] to-[#0ea5e9] shadow-lg shadow-[#06b6d4]/60 flex-shrink-0">
+              <Fingerprint className="text-white" size={24} strokeWidth={2.5} />
             </div>
-            <div className="font-bold tracking-wider">
-              <span className="gradient-text text-lg">CyberSec Arena</span>
-              <span className="sidebar-tagline">Learn · Compete · Secure</span>
+            <div className="font-bold tracking-tight min-w-0">
+              <div className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500 text-lg font-bold leading-tight">Cybersec Arena</div>
+              <div className="sidebar-tagline text-xs text-slate-400 font-medium mt-0.5">Learn · Compete · Secure</div>
             </div>
           </div>
         </div>
@@ -167,21 +171,23 @@ function Layout() {
 
       {/* Main */}
       <main className="relative md:ml-[280px]">
-        <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-[#1e2a3f] bg-[#0a0f1a]/30 backdrop-blur">
+        <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-[#1e2a3f] bg-gradient-to-r from-[#0a0f1a]/80 to-[#0f1628]/80 backdrop-blur">
           <div className="flex items-center gap-2">
-            <Fingerprint className="text-[#ff6b35]" size={22} strokeWidth={2.5} />
-            <div className="font-bold">
-              <span className="text-[#ff6b35]">CyberSec</span> <span className="text-[#ff8c42]">Arena</span>
+            <div className="p-2 rounded-lg bg-gradient-to-br from-[#06b6d4] via-[#0284c7] to-[#0ea5e9] shadow-sm">
+              <Fingerprint className="text-white" size={20} strokeWidth={2.5} />
+            </div>
+            <div className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500 text-sm">
+              Cybersec Arena
             </div>
           </div>
           <div className="flex items-center gap-2">
             {user && (
-              <div className="flex items-center gap-2 px-2 py-1 text-xs rounded bg-slate-800/50 border border-slate-700">
+              <div className="flex items-center gap-2 px-3 py-1.5 text-xs rounded bg-slate-800/60 border border-slate-700/50">
                 <User size={14} className="text-cyan-400" />
-                <span className="text-slate-300 truncate max-w-[100px]">{user.name || user.username}</span>
+                <span className="text-slate-300 truncate max-w-[80px]">{user.name || user.username}</span>
               </div>
             )}
-            <button onClick={() => setCoachOpen(true)} className="px-2 py-1 text-xs rounded bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-400/30 flex items-center gap-1">
+            <button onClick={() => setCoachOpen(true)} className="px-3 py-1.5 text-xs rounded bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-400/30 flex items-center gap-1 hover:bg-fuchsia-500/20 transition-colors">
               <Sparkles size={14} /> Coach
             </button>
           </div>

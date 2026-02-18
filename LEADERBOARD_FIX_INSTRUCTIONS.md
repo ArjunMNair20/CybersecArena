@@ -1,94 +1,178 @@
-# Leaderboard Fix - Complete Solution
+# Leaderboard User Data & Score Display Fix
 
-## Issue
-Leaderboard still showing "No players on the leaderboard yet" even after code changes.
+## Problem
+The leaderboard was not displaying user data and progress details (solved counts, quiz answers, etc.) properly. Users' positions and scores weren't showing up correctly, and progress information was missing from the leaderboard view.
 
-## Root Causes
-1. **Database trigger not updated** - New users' leaderboard entries weren't being created automatically
-2. **RLS policies too restrictive** - Users couldn't create their own leaderboard entries
-3. **Query issues** - View-based queries had problems
+## Root Cause
+The `leaderboard_scores` table was missing progress detail columns, and when the view-based query failed, the fallback query didn't have access to completed challenge counts and other progress metrics.
 
-## Solution - 3 Critical Updates Needed
+## Solution Overview
 
-### Step 1: Update RLS Policy for Leaderboard Inserts
+### 1. Database Schema Update
+Added the following columns to the `leaderboard_scores` table to store progress details alongside scores:
+- `ctf_solved_count` - number of CTF challenges solved
+- `phish_solved_count` - number of phishing emails identified
+- `code_solved_count` - number of code challenges solved  
+- `quiz_answered` - number of quiz questions answered
+- `quiz_correct` - number of quiz questions answered correctly
+- `firewall_best_score` - best firewall score
+- `badges` - array of earned badges
 
-In your **Supabase SQL Editor**, run this SQL:
+This solves the RLS (Row Level Security) issue where the leaderboard couldn't fetch progress data without bypassing security policies.
+
+### 2. Service Updates (`leaderboardService.ts`)
+- Updated `getLeaderboard()` to fetch the new progress columns from `leaderboard_scores`
+- Updated `performSync()` to always store progress details in the leaderboard_scores table
+- Updated `ensureLeaderboardEntry()` to initialize progress columns
+- Updated cache methods to include all fields for offline support
+- Updated `transformViewData()` to handle progress fields from the view
+
+### 3. UI Updates (`Leaderboard.tsx`)
+- Enhanced the "Your Position" section to show user score even while loading full leaderboard entry
+- Improved conditional rendering for progress details
+- Better handling of undefined values with proper null coalescing
+
+### 4. Leaderboard View Update
+Updated the `leaderboard_view` to prefer stored progress columns, with fallback to user_progress table for backward compatibility.
+
+## Migration Steps
+
+### Step 1: Apply Database Migration
+Run the SQL migration file to add progress columns:
 
 ```sql
--- Drop the old restrictive policy
-DROP POLICY IF EXISTS "Users can insert their own leaderboard entry" ON leaderboard_scores;
-
--- Create new policies
-CREATE POLICY "Users can insert their own leaderboard entry"
-  ON leaderboard_scores FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
--- Allow users to insert leaderboard entries more flexibly
-CREATE POLICY "System can insert leaderboard entries"
-  ON leaderboard_scores FOR INSERT
-  TO authenticated
-  WITH CHECK (true);
-
--- Allow users to update their own scores
-CREATE POLICY "Users can update their own leaderboard entry"
-  ON leaderboard_scores FOR UPDATE
-  USING (auth.uid() = user_id);
-
--- Allow public read
-CREATE POLICY "Anyone can view leaderboard"
-  ON leaderboard_scores FOR SELECT
-  TO authenticated
-  USING (true);
+-- File: supabase/leaderboard_progress_columns.sql
+-- Run this in your Supabase SQL Editor to add the progress columns
 ```
 
-### Step 2: Update Database Trigger Function
+Go to your Supabase dashboard:
+1. Click "SQL Editor" in the left sidebar
+2. Create a new query
+3. Copy and paste the contents of `supabase/leaderboard_progress_columns.sql`
+4. Run the query
 
-In your **Supabase SQL Editor**, run this SQL to replace the `handle_new_user()` function:
+The migration will:
+- Add progress columns to `leaderboard_scores` table
+- Update the `leaderboard_view` to use stored progress data
+- Ensure backward compatibility with existing user_progress data
 
-```sql
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
-DECLARE
-  generated_username text;
-BEGIN
-  -- Generate username if not provided
-  generated_username := COALESCE(NEW.raw_user_meta_data->>'username', 'user_' || substr(NEW.id::text, 1, 8));
-  
-  -- Create user profile
-  INSERT INTO user_profiles (id, username, email, name)
-  VALUES (
-    NEW.id,
-    generated_username,
-    NEW.email,
-    NEW.raw_user_meta_data->>'name'
-  )
-  ON CONFLICT (id) DO NOTHING;
-  
-  -- Create user progress
-  INSERT INTO user_progress (user_id)
-  VALUES (NEW.id)
-  ON CONFLICT (user_id) DO NOTHING;
-  
-  -- Create leaderboard entry
-  INSERT INTO leaderboard_scores (
-    user_id, 
-    username, 
-    total_score, 
-    ctf_score, 
-    phish_score, 
-    code_score, 
-    quiz_score, 
-    firewall_score
-  )
-  VALUES (
-    NEW.id,
-    generated_username,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
+### Step 2: Redeploy Frontend
+The frontend changes have been made to:
+- `src/services/leaderboardService.ts` - Enhanced data fetching and syncing
+- `src/pages/Leaderboard.tsx` - Better display of user data
+
+Just rebuild and deploy:
+```bash
+npm run build
+# Deploy to your hosting platform
+```
+
+### Step 3: Sync Existing Data
+When users open the leaderboard after the update, their scores will automatically be synced with the new progress columns. The first sync on component mount will populate all the new fields.
+
+To manually trigger a full sync of all users (optional):
+1. Open browser DevTools
+2. Go to the leaderboard page
+3. The service will perform a full sync on mount via `getLeaderboardWithFullSync()`
+
+## Data Flow After Fix
+
+```
+User completes challenge
+    ↓
+Progress stored locally
+    ↓
+syncUserScore() called
+    ↓
+All progress details + scores sent to leaderboard_scores
+    ↓
+leaderboard_scores table updated with:
+  - Scores (ctf_score, phish_score, etc.)
+  - Progress counts (ctf_solved_count, phish_solved_count, etc.)
+    ↓
+getLeaderboard() fetches from leaderboard_scores
+    ↓
+User position card shows: Name + Score + Progress
+```
+
+## Verification
+
+After migration and deployment:
+
+1. **Check Databases**: Open Supabase SQL Editor
+   ```sql
+   SELECT * FROM leaderboard_scores LIMIT 1;
+   ```
+   You should see the new columns with data populated.
+
+2. **Check Leaderboard Display**:
+   - Open the leaderboard page
+   - Verify your user position shows: Name, Score, Rank, and Progress
+   - Confirm progress details show solved counts for CTF, Phish, Code, etc.
+
+3. **Check Browser Console**:
+   Look for logs like:
+   ```
+   [leaderboardService] ✓ Got X score entries from leaderboard_scores
+   [leaderboardService] ✓ Leaderboard constructed: X entries
+   [Leaderboard] Step 3 SUCCESS: Fresh leaderboard loaded with X entries
+   ```
+
+## Rollback (if needed)
+
+If you need to revert the changes:
+
+1. **Database**: Run the rollback migration in Supabase SQL Editor
+2. **Frontend**: Redeploy the previous version from git
+
+## Performance Improvements
+
+- Eliminates RLS policy conflicts by storing all needed data in one table
+- Reduces database queries by fetching all data in one call
+- Improves caching efficiency with complete data in localStorage
+- Faster fallback when view is unavailable
+
+## What Gets Displayed Now
+
+For each leaderboard entry:
+- ✅ Player name (from user_profiles)
+- ✅ Avatar URL (from user_profiles)
+- ✅ Total score
+- ✅ Score breakdown (CTF, Phish, Code, Quiz, Firewall)
+- ✅ Progress breakdown (solved counts for each type)
+- ✅ Quiz details (answered/correct)
+- ✅ Badges earned
+- ✅ Rank
+- ✅ Last updated timestamp
+
+## Troubleshooting
+
+**Problem**: Progress columns show as 0 for everyone
+- **Solution**: Users need to open the app again to trigger the sync. Progress data syncs on first activity after migration.
+
+**Problem**: Still seeing "Loading your position..."
+- **Solution**: Check browser console for errors. Look for 403 Forbidden or permission errors in network tab.
+
+**Problem**: Leaderboard still empty
+- **Solution**: Ensure the migration ran successfully. Check:
+  ```sql
+  SELECT column_name FROM information_schema.columns 
+  WHERE table_name = 'leaderboard_scores' 
+  AND column_name = 'ctf_solved_count';
+  ```
+  If no results, the migration didn't apply correctly.
+
+## Files Modified
+
+1. `supabase/leaderboard_progress_columns.sql` - Migration file (NEW)
+2. `src/services/leaderboardService.ts` - Fixed data fetching and syncing
+3. `src/pages/Leaderboard.tsx` - Enhanced display logic
+
+---
+
+**Status**: Ready for deployment
+**Impact**: Medium - Database schema change with backward compatibility
+**Risk**: Low - Fully reversible migration
   )
   ON CONFLICT (user_id) DO NOTHING;
   

@@ -599,4 +599,341 @@ const schema = new GraphQLSchema({
     answer: 0,
     explanation: 'Disable introspection in production: { introspection: false }. Use query complexity limits and depth limiting to prevent DoS attacks.',
   },
+  {
+    id: 'ldap-injection',
+    title: 'LDAP Injection Vulnerability',
+    difficulty: 'intermediate',
+    snippet: `// Node.js (insecure)
+const filter = "(&(uid=" + username + ")(userPassword=" + password + "))";
+ldap.authenticate(filter);`,
+    question: 'What vulnerability exists?',
+    options: [
+      'LDAP injection - attacker can bypass authentication',
+      'Missing SSL/TLS',
+      'Weak password policy',
+      'No vulnerability',
+    ],
+    answer: 0,
+    explanation: 'Use LDAP libraries with proper escaping. Never concatenate user input into LDAP filters. Use parameterized queries when available.',
+  },
+  {
+    id: 'open-redirect',
+    title: 'Open Redirect Vulnerability',
+    difficulty: 'beginner',
+    snippet: `// Express.js (insecure)
+app.get('/redirect', (req, res) => {
+  const url = req.query.url;
+  res.redirect(url);
+});`,
+    question: 'What vulnerability exists?',
+    options: [
+      'Open redirect - attacker can redirect to malicious site',
+      'Missing input validation',
+      'No HTTPS enforcement',
+      'No vulnerability',
+    ],
+    answer: 0,
+    explanation: 'Validate URLs against a whitelist of allowed domains. Use relative URLs when possible. Never redirect to user-controlled URLs without validation.',
+  },
+  {
+    id: 'buffer-overflow',
+    title: 'Buffer Overflow in C',
+    difficulty: 'expert',
+    snippet: `// C (insecure)
+void process(char *input) {
+  char buffer[8];
+  strcpy(buffer, input); // No bounds checking
+}`,
+    question: 'What vulnerability exists?',
+    options: [
+      'Buffer overflow - can overwrite stack memory',
+      'Missing null terminator',
+      'Array too small',
+      'No vulnerability',
+    ],
+    answer: 0,
+    explanation: 'Use safe functions: strncpy(), snprintf(), or bounds-checking mechanisms. Enable stack canaries, ASLR, and use AddressSanitizer for testing.',
+  },
+  {
+    id: 'memory-leak-c',
+    title: 'Memory Leak in C++',
+    difficulty: 'intermediate',
+    snippet: `// C++ (insecure)
+void process(int count) {
+  void *data = malloc(count * sizeof(int));
+  if (count < 0) {
+    return; // Memory not freed
+  }
+  free(data);
+}`,
+    question: 'What is the security issue?',
+    options: [
+      'Memory leak - allocation not freed on early return',
+      'Missing validation',
+      'Malloc is slow',
+      'No issue',
+    ],
+    answer: 0,
+    explanation: 'Use RAII pattern or smart pointers (unique_ptr, shared_ptr) in C++. In C, use goto cleanup pattern or structured error handling. Leaks can be exploited for DoS.',
+  },
+  {
+    id: 'null-pointer-deref',
+    title: 'Null Pointer Dereference',
+    difficulty: 'intermediate',
+    snippet: `// C (insecure)
+int process(const char *ptr) {
+  return ptr[0]; // No null check
+}`,
+    question: 'What vulnerability exists?',
+    options: [
+      'Null pointer dereference - can crash application',
+      'Missing array bounds check',
+      'Type mismatch',
+      'No vulnerability',
+    ],
+    answer: 0,
+    explanation: 'Always check for null pointers before dereferencing. Use static analysis tools like clang-analyzer. Consider using languages with null safety.',
+  },
+  {
+    id: 'integer-overflow',
+    title: 'Integer Overflow Vulnerability',
+    difficulty: 'intermediate',
+    snippet: `// C (insecure)
+void allocate(int size) {
+  int total = size * sizeof(int); // Can overflow
+  void *buf = malloc(total);
+}`,
+    question: 'What can happen with integer overflow?',
+    options: [
+      'Allocate less memory than intended, causing buffer overflow',
+      'Crash with division by zero',
+      'Memory leak occurs',
+      'No issue',
+    ],
+    answer: 0,
+    explanation: 'Validate input ranges before multiplication. Use safe math functions or libraries. Check for integer overflow conditions explicitly.',
+  },
+  {
+    id: 'use-after-free',
+    title: 'Use-After-Free Vulnerability',
+    difficulty: 'expert',
+    snippet: `// C (insecure)
+void process() {
+  char *ptr = malloc(10);
+  free(ptr);
+  printf("%s", ptr); // Use-after-free
+}`,
+    question: 'What vulnerability exists?',
+    options: [
+      'Use-after-free - accessing freed memory leads to unpredictable behavior',
+      'Double free',
+      'Memory leak',
+      'No vulnerability',
+    ],
+    answer: 0,
+    explanation: 'Set pointers to NULL after free. Use static analysis tools or AddressSanitizer. Consider using safer languages or memory-safe libraries.',
+  },
+  {
+    id: 'log-injection',
+    title: 'Log Injection Attack',
+    difficulty: 'intermediate',
+    snippet: `// Java (insecure)
+Logger logger = LoggerFactory.getLogger("app");
+logger.info("User: " + username);`,
+    question: 'What attack is possible?',
+    options: [
+      'Log injection - attacker can forge log entries with newlines',
+      'Missing timestamps',
+      'Performance issue',
+      'No vulnerability',
+    ],
+    answer: 0,
+    explanation: 'Sanitize log input by removing newlines and control characters. Use structured logging (JSON). Never log untrusted data without encoding.',
+  },
+  {
+    id: 'xxe-injection',
+    title: 'XML External Entity (XXE) Attack',
+    difficulty: 'intermediate',
+    snippet: `// Java (insecure)
+DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+DocumentBuilder builder = factory.newDocumentBuilder();
+Document doc = builder.parse(new InputSource(xmlInput));`,
+    question: 'What vulnerability exists?',
+    options: [
+      'XXE injection - can read files or cause DoS',
+      'Missing validation',
+      'XML format error',
+      'No vulnerability',
+    ],
+    answer: 0,
+    explanation: 'Disable external entities: factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true). Use SAX with handlers instead of DOM.',
+  },
+  {
+    id: 'insecure-ssl-tls',
+    title: 'Insecure SSL/TLS Configuration',
+    difficulty: 'beginner',
+    snippet: `// Java (insecure)
+HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+conn.setHostnameVerifier((hostname, session) -> true); // Disables verification`,
+    question: 'What vulnerability exists?',
+    options: [
+      'MITM attack - hostname verification bypassed',
+      'Missing certificate check',
+      'TLS version too old',
+      'No vulnerability',
+    ],
+    answer: 0,
+    explanation: 'Never bypass SSL verification. Use default verifiers. Pin certificates for high-security apps. Avoid TLS < 1.2. Disable weak ciphers.',
+  },
+  {
+    id: 'dependency-vulnerability',
+    title: 'Vulnerable Dependency Usage',
+    difficulty: 'beginner',
+    snippet: `// Node.js package.json (insecure)
+{
+  "dependencies": {
+    "lodash": "^2.0.0"  // Very old version with known CVEs
+  }
+}`,
+    question: 'What is the security issue?',
+    options: [
+      'Using outdated dependency with known vulnerabilities (CVEs)',
+      'Package name is wrong',
+      'Version number invalid',
+      'No issue',
+    ],
+    answer: 0,
+    explanation: 'Regularly update dependencies. Use "npm audit" or "npm outdated". Set up automated dependency updates. Subscribe to security advisories.',
+  },
+  {
+    id: 'insecure-deserialization-java',
+    title: 'Insecure Java Deserialization',
+    difficulty: 'expert',
+    snippet: `// Java (insecure)
+ObjectInputStream ois = new ObjectInputStream(userInput);
+Object obj = ois.readObject(); // Untrusted data`,
+    question: 'What vulnerability exists?',
+    options: [
+      'Arbitrary code execution via gadget chains',
+      'Missing null check',
+      'Slow performance',
+      'No vulnerability',
+    ],
+    answer: 0,
+    explanation: 'Never deserialize untrusted data. Use JSON instead of Java serialization. If required, use Java 9+ filters or libraries like NotSoSerial.',
+  },
+  {
+    id: 'weak-encryption',
+    title: 'Using Weak Encryption',
+    difficulty: 'beginner',
+    snippet: `// Python (insecure)
+from Crypto.Cipher import DES
+key = "12345678"  // 8-byte key
+cipher = DES.new(key, DES.MODE_ECB)
+encrypted = cipher.encrypt(plaintext)`,
+    question: 'What are the security issues?',
+    options: [
+      'DES is weak, ECB mode reveals patterns, key not random',
+      'Missing padding',
+      'Encryption is unnecessary',
+      'No issues',
+    ],
+    answer: 0,
+    explanation: 'Use AES-256 with random keys. Use modes like GCM or CBC (never ECB). Store keys securely. Use cryptographic libraries like libsodium.',
+  },
+  {
+    id: 'missing-input-validation',
+    title: 'Missing Input Validation',
+    difficulty: 'beginner',
+    snippet: `// Python (insecure)
+age = int(request.args.get('age'))
+if age > 18:
+  grant_admin_access()`,
+    question: 'What vulnerability exists?',
+    options: [
+      'No bounds checking - negative ages accepted',
+      'Type conversion error',
+      'Logic error',
+      'No vulnerability',
+    ],
+    answer: 0,
+    explanation: 'Validate all input: type, length, range, format. Use whitelists. Never trust input. Implement both client-side and server-side validation.',
+  },
+  {
+    id: 'weak-password-policy',
+    title: 'Weak Password Policy',
+    difficulty: 'beginner',
+    snippet: `// Node.js (insecure)
+function validatePassword(pwd) {
+  return pwd.length >= 6; // Only checks length
+}`,
+    question: 'What issues exist?',
+    options: [
+      'Too short, no complexity requirements, easy to brute force',
+      'Password validation impossible',
+      'Should use numbers only',
+      'No issues',
+    ],
+    answer: 0,
+    explanation: 'Require minimum 12-16 characters, uppercase, lowercase, numbers, symbols. Use password strength meters. Implement rate limiting on login.',
+  },
+  {
+    id: 'broken-auth',
+    title: 'Broken Authentication - Weak Session',
+    difficulty: 'beginner',
+    snippet: `// PHP (insecure)
+$_SESSION['user_id'] = $userId;
+// Session ID not regenerated on login`,
+    question: 'What vulnerability exists?',
+    options: [
+      'Session fixation - attacker can force user to use attacker-controlled session',
+      'Missing password check',
+      'Cookie missing',
+      'No vulnerability',
+    ],
+    answer: 0,
+    explanation: 'Regenerate session ID on successful login: session_regenerate_id(true). Set secure, httpOnly, sameSite flags on session cookies.',
+  },
+  {
+    id: 'insecure-api-endpoint',
+    title: 'Insecure API Endpoint',
+    difficulty: 'beginner',
+    snippet: `// Express.js (insecure)
+app.get('/api/balance', (req, res) => {
+  const balance = db.getBalance(req.query.user_id);
+  res.json({ balance });
+});`,
+    question: 'What vulnerability exists?',
+    options: [
+      'No authentication - anyone can access any user balance',
+      'Missing rate limiting',
+      'Data not encrypted',
+      'No vulnerability',
+    ],
+    answer: 0,
+    explanation: 'Always authenticate and authorize. Verify user can access only their own data. Use JWTs or session tokens. Implement rate limiting.',
+  },
+  {
+    id: 'error-based-info-disclosure',
+    title: 'Error-Based Information Disclosure',
+    difficulty: 'beginner',
+    snippet: `// Node.js (insecure)
+app.get('/user/:id', (req, res) => {
+  try {
+    const user = db.getUser(req.params.id);
+    res.json(user);
+  } catch (error) {
+    res.json({ error: error.message, stack: error.stack });
+  }
+});`,
+    question: 'What information is exposed?',
+    options: [
+      'Stack traces, database paths, library versions reveal internal structure',
+      'User data issue',
+      'Missing password',
+      'No vulnerability',
+    ],
+    answer: 0,
+    explanation: 'Log detailed errors server-side only. Return generic messages to clients: "An error occurred". Use error IDs to correlate logs.',
+  },
 ];

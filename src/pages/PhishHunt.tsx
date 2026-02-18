@@ -73,7 +73,7 @@ export default function PhishHunt() {
 
   // Randomize emails once when the component mounts so solved questions don't disappear
   useEffect(() => {
-    const count = Math.min(PHISH_EMAILS.length, 15);
+    const count = PHISH_EMAILS.length; // Show all email challenges
     setRandomizedEmails(getRandomizedEmails(PHISH_EMAILS, state.phish.solvedIds, count));
     // We intentionally don't re-run this when solvedIds change, to avoid emails disappearing
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1214,6 +1214,49 @@ export default function PhishHunt() {
                   : 'border-slate-800 hover:border-slate-700'
               }`}
             >
+              {/* Industry & Campaign Tags */}
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                {m.industry && m.industry !== 'general' && (
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                    m.industry === 'banking' ? 'bg-blue-500/20 text-blue-300 border border-blue-400/30' :
+                    m.industry === 'healthcare' ? 'bg-red-500/20 text-red-300 border border-red-400/30' :
+                    m.industry === 'tech' ? 'bg-purple-500/20 text-purple-300 border border-purple-400/30' :
+                    m.industry === 'retail' ? 'bg-green-500/20 text-green-300 border border-green-400/30' :
+                    m.industry === 'government' ? 'bg-amber-500/20 text-amber-300 border border-amber-400/30' :
+                    m.industry === 'social-media' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/30' :
+                    'bg-slate-500/20 text-slate-300 border border-slate-400/30'
+                  }`}>
+                    💼 {m.industry.toUpperCase()}
+                  </span>
+                )}
+                {m.seasonalCampaign && m.seasonalCampaign !== 'general' && (
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                    m.seasonalCampaign === 'holiday' ? 'bg-red-500/20 text-red-300 border border-red-400/30' :
+                    m.seasonalCampaign === 'tax-season' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-400/30' :
+                    m.seasonalCampaign === 'back-to-school' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/30' :
+                    m.seasonalCampaign === 'black-friday' ? 'bg-orange-500/20 text-orange-300 border border-orange-400/30' :
+                    'bg-slate-500/20 text-slate-300'
+                  }`}>
+                    {m.seasonalCampaign === 'holiday' && '🎄'}
+                    {m.seasonalCampaign === 'tax-season' && '📋'}
+                    {m.seasonalCampaign === 'back-to-school' && '📚'}
+                    {m.seasonalCampaign === 'black-friday' && '🛍️'}
+                    {' '}{m.seasonalCampaign.replace('-', ' ').toUpperCase()}
+                  </span>
+                )}
+                {m.difficulty && (
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium border ${
+                    m.difficulty === 'easy' ? 'bg-green-500/10 text-green-300 border-green-400/30' :
+                    m.difficulty === 'medium' ? 'bg-yellow-500/10 text-yellow-300 border-yellow-400/30' :
+                    'bg-red-500/10 text-red-300 border-red-400/30'
+                  }`}>
+                    {m.difficulty === 'easy' && '⭐'}
+                    {m.difficulty === 'medium' && '⭐⭐'}
+                    {m.difficulty === 'hard' && '⭐⭐⭐'}
+                  </span>
+                )}
+              </div>
+
               {/* Email Header */}
               <div className="space-y-2">
                 <div className="flex items-start justify-between">
@@ -1251,6 +1294,13 @@ export default function PhishHunt() {
                 )}
               </div>
 
+              {/* Expert Tip - Show when solved correctly */}
+              {solved && m.expertTip && (
+                <div className="mt-3 p-3 rounded-lg bg-blue-500/10 border border-blue-400/30">
+                  <p className="text-xs text-blue-300">{m.expertTip}</p>
+                </div>
+              )}
+
               {/* Analysis Section */}
               {!solved && (
                 <div className="space-y-3 pt-3 border-t border-slate-800">
@@ -1280,29 +1330,37 @@ export default function PhishHunt() {
                           const isChecked = analysis[m.id]?.checkedIndicators.includes(indicator.id) || false;
                           const actualIndicators = getSuspiciousIndicators(m);
                           const isActual = actualIndicators.includes(indicator.id);
+                          const redFlagExplanation = m.redFlagExplanations?.find(rf => rf.indicatorId === indicator.id);
                           
                           return (
-                            <button
-                              key={indicator.id}
-                              onClick={() => toggleIndicator(m.id, indicator.id)}
-                              className={`p-2 rounded-lg border text-xs text-left transition-all interactive btn-press focus-ring ${
-                                isChecked
-                                  ? isActual
-                                    ? 'bg-yellow-500/20 border-yellow-400/50 text-yellow-300'
-                                    : 'bg-red-500/10 border-red-400/30 text-red-300'
-                                  : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
-                              }`}
-                            >
-                              <div className="flex items-center gap-1.5">
-                                <div className={`w-3 h-3 rounded border flex items-center justify-center flex-shrink-0 ${
-                                  isChecked ? 'bg-purple-400 border-[#FF6F61]' : 'border-slate-600'
-                                }`}>
-                                  {isChecked && <CheckCircle size={10} className="text-slate-900" />}
+                            <div key={indicator.id}>
+                              <button
+                                onClick={() => toggleIndicator(m.id, indicator.id)}
+                                className={`w-full p-2 rounded-lg border text-xs text-left transition-all interactive btn-press focus-ring ${
+                                  isChecked
+                                    ? isActual
+                                      ? 'bg-yellow-500/20 border-yellow-400/50 text-yellow-300'
+                                      : 'bg-red-500/10 border-red-400/30 text-red-300'
+                                    : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <div className={`w-3 h-3 rounded border flex items-center justify-center flex-shrink-0 ${
+                                    isChecked ? 'bg-purple-400 border-[#FF6F61]' : 'border-slate-600'
+                                  }`}>
+                                    {isChecked && <CheckCircle size={10} className="text-slate-900" />}
+                                  </div>
+                                  <Icon size={12} />
+                                  <span className="truncate">{indicator.label}</span>
                                 </div>
-                                <Icon size={12} />
-                                <span className="truncate">{indicator.label}</span>
-                              </div>
-                            </button>
+                              </button>
+                              {/* Red Flag Explanation - Show when hovering or checked */}
+                              {isChecked && redFlagExplanation && (
+                                <div className="mt-1 p-2 rounded bg-slate-800/50 border border-slate-700/50">
+                                  <p className="text-xs text-slate-300">{redFlagExplanation.explanation}</p>
+                                </div>
+                              )}
+                            </div>
                           );
                         })}
                       </div>

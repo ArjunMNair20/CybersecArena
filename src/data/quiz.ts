@@ -224,6 +224,45 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
     answer: 1,
     explain: 'Full-disk encryption and a strong unlock method protect data even if the device is lost.',
   },
+  {
+    id: 'q-easy-26',
+    difficulty: 'easy',
+    prompt: 'What is a buffer overflow vulnerability?',
+    choices: [
+      'When a network buffer exceeds its maximum transfer rate',
+      'When program writes more data to a buffer than it can hold, overwriting adjacent memory',
+      'When a database has too many records',
+      'When a graphics display runs out of video memory',
+    ],
+    answer: 1,
+    explain: 'Buffer overflows occur when data exceeds buffer boundaries, potentially overwriting the return address or sensitive data and leading to code execution or crashes.',
+  },
+  {
+    id: 'q-easy-27',
+    difficulty: 'easy',
+    prompt: 'What is the main purpose of a firewall in a computer network?',
+    choices: [
+      'To store backup files',
+      'To monitor and control incoming and outgoing network traffic',
+      'To increase internet speed',
+      'To delete viruses automatically',
+    ],
+    answer: 1,
+    explain: 'A firewall monitors and controls network traffic based on security rules, allowing or blocking connections to protect against unauthorized access and network threats.',
+  },
+  {
+    id: 'q-easy-28',
+    difficulty: 'easy',
+    prompt: 'What does encryption do to data?',
+    choices: [
+      'Deletes sensitive information',
+      'Converts data into unreadable form using a cipher and key',
+      'Backs up files to the cloud',
+      'Removes all data from a device',
+    ],
+    answer: 1,
+    explain: 'Encryption transforms readable data into ciphertext using an algorithm and key. Only someone with the correct decryption key can convert it back to readable form.',
+  },
 
   // -------------------- INTERMEDIATE (MEDIUM) – 25 QUESTIONS --------------------
   {

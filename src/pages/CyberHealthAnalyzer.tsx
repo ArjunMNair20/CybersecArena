@@ -61,21 +61,6 @@ export default function ThreatRadar() {
     }
   };
 
-  const getRiskColor = (level: string): string => {
-    switch (level) {
-      case 'critical':
-        return 'from-red-900 to-red-700';
-      case 'high':
-        return 'from-orange-700 to-red-600';
-      case 'medium':
-        return 'from-yellow-600 to-orange-500';
-      case 'low':
-        return 'from-green-600 to-emerald-500';
-      default:
-        return 'from-blue-600 to-cyan-500';
-    }
-  };
-
   const getRiskBgColor = (level: string): string => {
     switch (level) {
       case 'critical':
@@ -156,34 +141,6 @@ export default function ThreatRadar() {
         {/* Results Section */}
         {analysisResult && (
           <div className="space-y-6">
-            {/* Overall Risk Score */}
-            <div className={`bg-gradient-to-r ${getRiskColor(analysisResult.overall_risk_level)} rounded-lg p-8 text-white border border-opacity-30`}>
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <p className="text-sm opacity-75 mb-2 font-medium">THREAT SCORE</p>
-                  <h2 className="text-3xl font-bold">Risk Level Assessment</h2>
-                </div>
-                <div className="text-center">
-                  <div className="text-6xl font-bold tabular-nums">{analysisResult.risk_percentage}</div>
-                  <div className="text-sm opacity-75 mt-1">/100</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 mb-4 pb-4 border-b border-white border-opacity-20">
-                <div className="w-3 h-3 rounded-full" style={{
-                  backgroundColor: analysisResult.overall_risk_level === 'critical' ? '#ff1744' :
-                                  analysisResult.overall_risk_level === 'high' ? '#ff9100' :
-                                  analysisResult.overall_risk_level === 'medium' ? '#ffd600' : '#00e676'
-                }}></div>
-                <span className="text-lg font-bold uppercase tracking-wide capitalize">{analysisResult.overall_risk_level} RISK</span>
-                <span className="ml-auto text-sm opacity-75">
-                  {analysisResult.risk_percentage >= 80 ? 'CRITICAL - Immediate Action Required' :
-                   analysisResult.risk_percentage >= 60 ? 'HIGH - Take Action Today' :
-                   analysisResult.risk_percentage >= 40 ? 'MEDIUM - Recommended Actions' : 'LOW - Continue Monitoring'}
-                </span>
-              </div>
-              <p className="text-sm opacity-90 leading-relaxed">{analysisResult.explanation}</p>
-            </div>
-
             {/* Detected Symptoms */}
             <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-lg p-6">
               <h3 className="text-xl font-bold text-[#8B5CF6] mb-4 flex items-center gap-2">
@@ -220,12 +177,15 @@ export default function ThreatRadar() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-3xl font-bold text-[#8B5CF6]">{threat.probability}%</div>
+                        <div className="text-2xl font-bold text-slate-100">{threat.probability}%</div>
                         <p className="text-xs text-slate-400">Probability</p>
                       </div>
                     </div>
 
-                    <p className="text-slate-300 text-sm mb-3">{threat.description}</p>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-400 mb-1">Reason:</p>
+                      <p className="text-slate-300 text-sm">{threat.description}</p>
+                    </div>
 
                     {threat.indicators.length > 0 && (
                       <div className="mt-3 pt-3 border-t border-slate-600">

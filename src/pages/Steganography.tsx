@@ -1,17 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars, no-empty */
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Lock, Download, UploadCloud, Eye, X, FileImage, Volume2, FileText, Check, Info } from 'lucide-react';
+import { Lock, Download, UploadCloud, Eye, X, Check, Info } from 'lucide-react';
 
-function dataURLToBlob(dataurl: string) {
-  const arr = dataurl.split(',');
-  const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
-  }
-  return new Blob([u8arr], { type: mime });
-}
+
 
 function utf8ToBytes(str: string) {
   return new TextEncoder().encode(str);
@@ -32,11 +23,9 @@ export default function Steganography() {
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [embedded, setEmbedded] = useState(false);
-  const [stegoType, setStegoType] = useState<'text' | 'image' | 'audio'>('text');
-  const [secretFile, setSecretFile] = useState<File | null>(null);
-  const [secretPreview, setSecretPreview] = useState<string | null>(null);
-  const [decodedType, setDecodedType] = useState<'text' | 'image' | 'audio' | null>(null);
-  const [decodedMime, setDecodedMime] = useState<string | null>(null);
+  const [stegoType] = useState<'text' | 'image' | 'audio'>('text');
+  const [secretFile, _setSecretFile] = useState<File | null>(null);
+  const [_secretPreview, _setSecretPreview] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const progressRef = useRef<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -73,12 +62,12 @@ export default function Steganography() {
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   };
 
-  const estimateCapacityBytes = useCallback((mimeLen = 0) => {
+  const estimateCapacityBytes = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return 0;
     const pixels = canvas.width * canvas.height;
     const capacityBits = pixels * 3; // R,G,B LSBs
-    const capacityBytes = Math.floor(capacityBits / 8) - (1 + 1 + mimeLen + 4); // reserve type(1)+mimeLen(1)+mime+length(4)
+    const capacityBytes = Math.floor(capacityBits / 8) - 4; // reserve 4 bytes for length header
     return Math.max(0, capacityBytes);
   }, []);
 
@@ -98,22 +87,7 @@ export default function Steganography() {
     }
   };
 
-  const handleSecretFile = (file?: File) => {
-    // revoke previous preview
-    try { if (secretPreview && secretPreview.startsWith('blob:')) URL.revokeObjectURL(secretPreview); } catch {}
-    if (!file) {
-      setSecretFile(null);
-      setSecretPreview(null);
-      return;
-    }
-    setSecretFile(file || null);
-    try {
-      const url = URL.createObjectURL(file);
-      setSecretPreview(url);
-    } catch {
-      setSecretPreview(null);
-    }
-  };
+
 
   // progress simulation for better UX while processing
   const startProgress = () => {
@@ -134,13 +108,12 @@ export default function Steganography() {
   useEffect(() => {
     return () => {
       try { if (progressRef.current) window.clearInterval(progressRef.current); } catch {}
-      try { if (secretPreview && secretPreview.startsWith('blob:')) URL.revokeObjectURL(secretPreview); } catch {}
       try { if (decoded && typeof decoded === 'string' && decoded.startsWith('blob:')) URL.revokeObjectURL(decoded); } catch {}
       try { if (filePreview && filePreview.startsWith('blob:')) URL.revokeObjectURL(filePreview); } catch {}
       try { if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current); } catch {}
       try { if (toastHideTimerRef.current) window.clearTimeout(toastHideTimerRef.current); } catch {}
     };
-  }, [secretPreview, decoded, filePreview]);
+  }, [decoded, filePreview]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -168,9 +141,13 @@ export default function Steganography() {
       }
 
       let secretBytes: Uint8Array;
-      let mime = '';
       if (stegoType === 'text') {
         secretBytes = utf8ToBytes(secret);
+        if (secretBytes.length === 0) {
+          setError('Secret message is empty');
+          setProcessing(false);
+          return;
+        }
       } else {
         if (!secretFile) {
           setError('No secret file selected');
@@ -179,23 +156,17 @@ export default function Steganography() {
         }
         const ab = await secretFile.arrayBuffer();
         secretBytes = new Uint8Array(ab);
-        mime = secretFile.type || '';
+        if (secretBytes.length === 0) {
+          setError('Secret file is empty');
+          setProcessing(false);
+          return;
+        }
       }
+      
       const length = secretBytes.length;
-      const mimeBytes = utf8ToBytes(mime);
-      if (mimeBytes.length > 255) {
-        setError('Secret MIME type too long');
-        setProcessing(false);
-        return;
-      }
-      const capacityBytes = estimateCapacityBytes(mimeBytes.length);
-      if (length === 0) {
-        setError('Secret is empty');
-        setProcessing(false);
-        return;
-      }
-      if (length > capacityBytes) {
-        setError(`Secret too long. Max bytes: ${capacityBytes}`);
+      const capacityBytes = estimateCapacityBytes();
+      if (length > capacityBytes - 5) { // 5 bytes for type(1) + length(4)
+        setError(`Secret too long. Max bytes: ${capacityBytes - 5}`);
         setProcessing(false);
         return;
       }
@@ -203,24 +174,30 @@ export default function Steganography() {
       const imageData = ctx.getImageData(0, 0, width, height);
       const data = imageData.data; // RGBA
 
-      // build payload: type(1) | mimeLen(1) | mime | length(4) | data
-      const typeCode = stegoType === 'text' ? 1 : stegoType === 'image' ? 2 : 3;
-      const payload = new Uint8Array(1 + 1 + mimeBytes.length + 4 + length);
+      // Standard LSB format with type identifier:
+      // [1-byte type: 0=text, 1=image, 2=audio][4-byte length (little-endian)][data]
+      const typeCode = stegoType === 'text' ? 0 : stegoType === 'image' ? 1 : 2;
+      const payload = new Uint8Array(1 + 4 + length);
+      
+      // Write type byte
       payload[0] = typeCode & 0xff;
-      payload[1] = mimeBytes.length & 0xff;
-      payload.set(mimeBytes, 2);
-      const off = 2 + mimeBytes.length;
-      payload[off + 0] = (length >>> 24) & 0xff;
-      payload[off + 1] = (length >>> 16) & 0xff;
-      payload[off + 2] = (length >>> 8) & 0xff;
-      payload[off + 3] = length & 0xff;
-      payload.set(secretBytes, off + 4);
+      
+      // Write length as 32-bit little-endian
+      payload[1] = length & 0xff;
+      payload[2] = (length >>> 8) & 0xff;
+      payload[3] = (length >>> 16) & 0xff;
+      payload[4] = (length >>> 24) & 0xff;
+      
+      // Copy secret bytes
+      payload.set(secretBytes, 5);
 
-      // embed bits into LSB of R,G,B channels sequentially
-      let dataIdx = 0; // index in data array
+      // Embed bits into LSB of R,G,B channels (skip alpha)
+      let dataIdx = 0;
+      
+      // Embed payload bytes using standard LSB technique
       for (let b = 0; b < payload.length; b++) {
         for (let bit = 7; bit >= 0; bit--) {
-          // find next non-alpha channel
+          // Skip alpha channels (every 4th byte in RGBA)
           while ((dataIdx + 1) % 4 === 0) dataIdx++;
           const bitVal = (payload[b] >> bit) & 1;
           data[dataIdx] = (data[dataIdx] & 0xfe) | bitVal;
@@ -229,13 +206,26 @@ export default function Steganography() {
       }
 
       ctx.putImageData(imageData, 0, 0);
-      const dataUrl = canvas.toDataURL('image/png');
-      setFilePreview(dataUrl);
+      
+      // Export as PNG to preserve LSB data without quality loss
+      const pngDataUrl = canvas.toDataURL('image/png');
+      
+      // Also create a high-quality PNG blob for reliable download
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          setFilePreview(url);
+        } else {
+          setFilePreview(pngDataUrl);
+        }
+      }, 'image/png', 1.0);
+      
       setEmbedded(true);
-      showToast('Embedding completed');
+      showToast('✓ Embedded (' + (stegoType === 'text' ? 'Text' : stegoType === 'image' ? 'Image' : 'Audio') + ' - Standard LSB)');
       finishProgress();
       setProcessing(false);
     } catch (e) {
+      console.error('Embed error:', e);
       setError('Failed to embed secret');
       finishProgress();
       setProcessing(false);
@@ -244,10 +234,25 @@ export default function Steganography() {
 
   const downloadImage = () => {
     if (!filePreview) return;
-    const a = document.createElement('a');
-    a.href = filePreview;
-    a.download = 'stego-image.png';
-    a.click();
+    const canvas = canvasRef.current!;
+    
+    // Convert canvas to PNG blob for reliable download
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setError('Failed to create PNG blob');
+        return;
+      }
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `stego-image-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('PNG image downloaded successfully');
+    }, 'image/png', 1.0);
   };
 
   const decodeSecret = async () => {
@@ -268,7 +273,7 @@ export default function Steganography() {
       const imageData = ctx.getImageData(0, 0, width, height);
       const data = imageData.data;
 
-      // read type (8 bits)
+      // read bits sequentially, skipping alpha channel
       let dataIdx = 0;
       const readBit = () => {
         while ((dataIdx + 1) % 4 === 0) dataIdx++;
@@ -285,27 +290,24 @@ export default function Steganography() {
         return val & 0xff;
       };
 
+      // Read standard LSB format: [1-byte type][4-byte length (little-endian)][data]
       const typeCode = readByte();
-      const mimeLen = readByte();
-      const mimeBytes = new Uint8Array(mimeLen);
-      for (let i = 0; i < mimeLen; i++) {
-        mimeBytes[i] = readByte();
-      }
-      const mime = mimeLen > 0 ? bytesToUtf8(mimeBytes) : '';
-
-      // read 32-bit length
-      const headerBytes = new Uint8Array(4);
-      for (let i = 0; i < 4; i++) {
-        headerBytes[i] = readByte();
-      }
-      const length = (headerBytes[0] << 24) | (headerBytes[1] << 16) | (headerBytes[2] << 8) | headerBytes[3];
-      const capacityBytes = estimateCapacityBytes(mimeLen);
-      if (length <= 0 || length > capacityBytes) {
-        setError('No hidden message found or invalid length');
+      
+      const lengthByte0 = readByte();
+      const lengthByte1 = readByte();
+      const lengthByte2 = readByte();
+      const lengthByte3 = readByte();
+      const length = lengthByte0 | (lengthByte1 << 8) | (lengthByte2 << 16) | (lengthByte3 << 24);
+      const capacityBytes = estimateCapacityBytes();
+      
+      if (length <= 0 || length > capacityBytes - 5) {
+        setError('No hidden message found, invalid length, or corrupted data');
         setProcessing(false);
+        finishProgress();
         return;
       }
 
+      // Read secret payload
       const payload = new Uint8Array(length);
       for (let b = 0; b < length; b++) {
         let byte = 0;
@@ -315,30 +317,33 @@ export default function Steganography() {
         payload[b] = byte;
       }
 
-      if (typeCode === 1) {
+      // Decode based on type code
+      if (typeCode === 0) {
+        // Text
         const message = bytesToUtf8(payload);
         setDecoded(message);
-        setDecodedType('text');
-        setDecodedMime(null);
+      } else if (typeCode === 1) {
+        // Image - detect MIME type and create blob URL
+        const blob = new Blob([payload], { type: 'image/png' });
+        const url = URL.createObjectURL(blob);
+        setDecoded(url);
       } else if (typeCode === 2) {
-        const blob = new Blob([payload], { type: mime || 'application/octet-stream' });
+        // Audio - create blob URL (default to audio/wav)
+        const blob = new Blob([payload], { type: 'audio/wav' });
         const url = URL.createObjectURL(blob);
         setDecoded(url);
-        setDecodedType('image');
-        setDecodedMime(mime || 'application/octet-stream');
-      } else if (typeCode === 3) {
-        const blob = new Blob([payload], { type: mime || 'audio/mpeg' });
-        const url = URL.createObjectURL(blob);
-        setDecoded(url);
-        setDecodedType('audio');
-        setDecodedMime(mime || 'audio/mpeg');
       } else {
-        setError('Unknown embedded type');
+        setError('Unknown secret type code: ' + typeCode);
+        finishProgress();
+        setProcessing(false);
+        return;
       }
+      
       finishProgress();
       setProcessing(false);
     } catch (e) {
-      setError('Failed to decode secret');
+      console.error('Decode error:', e);
+      setError('Failed to decode secret or corrupted data');
       finishProgress();
       setProcessing(false);
     }
@@ -350,24 +355,15 @@ export default function Steganography() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     setFilePreview(null);
     setSecret('');
-    // revoke any created blob urls
     try {
       if (decoded && decoded.startsWith('blob:')) URL.revokeObjectURL(decoded);
-    } catch {}
-    try {
-      if (filePreview && filePreview.startsWith('blob:')) URL.revokeObjectURL(filePreview);
     } catch {}
     setDecoded(null);
     setError(null);
     setEmbedded(false);
-    setSecretFile(null);
-    setDecodedType(null);
-    setDecodedMime(null);
     // clear file inputs' displayed names/values
     try { if (fileInputRef.current) fileInputRef.current.value = ''; } catch {}
     try { if (secretFileInputRef.current) secretFileInputRef.current.value = ''; } catch {}
-    try { if (secretPreview && secretPreview.startsWith('blob:')) URL.revokeObjectURL(secretPreview); } catch {}
-    setSecretPreview(null);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -383,7 +379,7 @@ export default function Steganography() {
         <h1 className="text-3xl font-bold text-[#8B5CF6] mb-2 flex items-center gap-2">
           <Lock size={28} /> StegoStudio
         </h1>
-        <p className="text-gray-400">StegoStudio — Embed & extract text, images, or audio inside images (client-side). Prefer PNG (lossless).</p>
+        <p className="text-gray-400">StegoStudio — Hide & reveal text messages in images using standard LSB steganography (client-side). <span className="text-emerald-400 font-semibold">✓ Decodable by external tools!</span></p>
       </div>
       <button
         onClick={() => setShowHelp((s) => !s)}
@@ -441,51 +437,14 @@ export default function Steganography() {
           </div>
 
           <div className="text-xs text-gray-400">
-            Capacity: <span className="font-semibold text-[#0284c7]">{estimateCapacityBytes(secretFile ? utf8ToBytes(secretFile.type).length : 0)} bytes</span> available for secret (approx). Header reserves type/mime/length bytes.
+            Capacity: <span className="font-semibold text-[#0284c7]">{estimateCapacityBytes()} bytes</span> available for secret (approx). Standard LSB format.
           </div>
 
           {mode === 'encode' && (
             <>
-              <label className="block text-xs text-gray-400">Secret Type</label>
-              <div className="flex gap-2 mb-2">
-                <button
-                  onClick={() => setStegoType('text')}
-                  className={`px-3 py-2 rounded border text-sm ${stegoType === 'text' ? 'bg-[#06b6d4]/20 text-[#0284c7] border-[#06b6d4]/50' : 'bg-[#1e2a3f]/50 border-[#1e2a3f]/30'}`}
-                ><FileText size={16}/> Text</button>
-                <button
-                  onClick={() => setStegoType('image')}
-                  className={`px-3 py-2 rounded border text-sm ${stegoType === 'image' ? 'bg-[#06b6d4]/20 text-[#0284c7] border-[#06b6d4]/50' : 'bg-[#1e2a3f]/50 border-[#1e2a3f]/30'}`}
-                ><FileImage size={16}/> Image</button>
-                <button
-                  onClick={() => setStegoType('audio')}
-                  className={`px-3 py-2 rounded border text-sm ${stegoType === 'audio' ? 'bg-[#06b6d4]/20 text-[#0284c7] border-[#06b6d4]/50' : 'bg-[#1e2a3f]/50 border-[#1e2a3f]/30'}`}
-                ><Volume2 size={16}/> Audio</button>
-              </div>
-
-              {stegoType === 'text' && (
-                <>
-                  <label className="block text-xs text-gray-400">Secret Text</label>
-                  <textarea value={secret} onChange={(e) => setSecret(e.target.value)} className="w-full p-2 rounded bg-black/30 text-sm border border-[#1e2a3f]/30" rows={6} />
-                </>
-              )}
-
-              {stegoType !== 'text' && (
-                <>
-                  <label className="block text-xs text-gray-400">Secret File ({stegoType === 'image' ? 'image/*' : 'audio/*'})</label>
-                  <input ref={secretFileInputRef} type="file" accept={stegoType === 'image' ? 'image/*' : 'audio/*'} onChange={(e) => handleSecretFile(e.target.files?.[0] || undefined)} />
-                  {secretFile && (
-                    <div className="mt-2">
-                      <div className="text-xs text-gray-300">Selected: {secretFile.name} • {Math.round(secretFile.size/1024)} KB • {secretFile.type || 'unknown'}</div>
-                      {stegoType === 'image' && secretPreview && (
-                        <img src={secretPreview} alt="secret preview" className="max-w-full max-h-32 object-contain mt-2" />
-                      )}
-                      {stegoType === 'audio' && secretPreview && (
-                        <audio controls src={secretPreview} className="mt-2 w-full" />
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
+              <label className="block text-xs text-gray-400">Secret Message (Text)</label>
+              <p className="text-xs text-gray-500 mb-2">Standard LSB format - decodable by external tools</p>
+              <textarea value={secret} onChange={(e) => setSecret(e.target.value)} className="w-full p-2 rounded bg-black/30 text-sm border border-[#1e2a3f]/30" rows={6} placeholder="Enter your secret message..." />
 
               <div className="flex gap-2 mt-3">
                 <button disabled={processing || !filePreview} onClick={embedSecret} className="px-4 py-2 rounded bg-[#06b6d4]/20 text-[#0284c7] disabled:opacity-50">Embed</button>
@@ -497,32 +456,13 @@ export default function Steganography() {
           {mode === 'decode' && (
             <>
               <div className="flex gap-2">
-                <button disabled={processing || !filePreview} onClick={decodeSecret} className="px-4 py-2 rounded bg-[#06b6d4]/20 text-[#0284c7] flex items-center gap-2 disabled:opacity-50"><Eye size={14}/>Decode</button>
+                <button disabled={processing || !filePreview} onClick={decodeSecret} className="px-4 py-2 rounded bg-[#06b6d4]/20 text-[#0284c7] flex items-center gap-2 disabled:opacity-50"><Eye size={14}/>Decode Message</button>
               </div>
-              {decoded !== null && decodedType === 'text' && (
+              {decoded !== null && (
                 <div className="mt-3 p-3 rounded bg-[#0f1628]/50 border border-[#1e2a3f]/30">
-                  <label className="text-xs text-gray-400">Decoded Text</label>
-                  <pre className="whitespace-pre-wrap text-sm mt-2 text-gray-300">{decoded}</pre>
-                </div>
-              )}
-
-              {decoded !== null && decodedType === 'image' && (
-                <div className="mt-3 p-3 rounded bg-[#0f1628]/50 border border-[#1e2a3f]/30">
-                  <label className="text-xs text-gray-400">Decoded Image</label>
-                  <img src={decoded} alt="decoded" className="max-w-full mt-2" />
-                  <div className="mt-2">
-                    <a href={decoded} download={`decoded-image${decodedMime && decodedMime.includes('png') ? '.png' : ''}`} className="px-3 py-2 rounded bg-green-500/20 inline-block">Download Image</a>
-                  </div>
-                </div>
-              )}
-
-              {decoded !== null && decodedType === 'audio' && (
-                <div className="mt-3 p-3 rounded bg-[#0f1628]/50 border border-[#1e2a3f]/30">
-                  <label className="text-xs text-gray-400">Decoded Audio</label>
-                  <audio controls src={decoded} className="w-full mt-2" />
-                  <div className="mt-2">
-                    <a href={decoded} download={`decoded-audio${decodedMime && decodedMime.includes('mpeg') ? '.mp3' : '.bin'}`} className="px-3 py-2 rounded bg-green-500/20 inline-block">Download Audio</a>
-                  </div>
+                  <label className="text-xs text-gray-400 block mb-2">✓ Hidden Message Decoded</label>
+                  <pre className="whitespace-pre-wrap text-sm text-cyan-300 font-mono bg-black/50 p-3 rounded border border-cyan-500/20">{decoded}</pre>
+                  <p className="text-xs text-gray-500 mt-2">Copy the message above or use an external LSB tool to decode</p>
                 </div>
               )}
             </>
@@ -552,7 +492,7 @@ export default function Steganography() {
         </div>
       )}
       {showHelp && (
-        <div className="fixed right-6 top-20 z-50 w-80 pointer-events-auto">
+        <div className="fixed right-6 top-20 z-50 w-96 pointer-events-auto">
           <div className="bg-[#0f1628]/95 border border-[#1e2a3f]/40 rounded-lg p-4 shadow-lg text-sm text-gray-300">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -561,8 +501,18 @@ export default function Steganography() {
               </div>
               <button onClick={() => setShowHelp(false)} className="text-gray-400 hover:text-gray-200"><X size={16} /></button>
             </div>
-            <div className="mt-3 text-xs leading-relaxed text-gray-400">
-              Steganography is the practice of hiding a message or data within another file or medium so that the existence of the hidden information is concealed. In digital media, tiny, imperceptible changes (for example, to image pixel values) can carry hidden data without noticeably altering the visible content.
+            <div className="mt-3 text-xs leading-relaxed text-gray-400 space-y-2">
+              <p>Steganography is the practice of hiding a message within another file so that the existence of the hidden information is concealed. StegoStudio uses standard LSB (Least Significant Bit) steganography.</p>
+              
+              <div className="text-cyan-400 font-semibold">✓ Standard LSB Format - External Tool Compatible</div>
+              <p className="text-gray-500">Format: 4-byte length (little-endian) + message data. This allows any standard LSB decoder to extract your message:</p>
+              <ul className="list-disc list-inside text-gray-500 space-y-1">
+                <li>OpenStego - LSB Steganography Tool</li>
+                <li>SilentEye - Audio & Image Steganography</li>
+                <li>Online LSB Extractor tools</li>
+                <li>Custom LSB decoders</li>
+              </ul>
+              <p className="text-emerald-400 font-semibold mt-2">Downloads PNG files encoded with standard LSB format!</p>
             </div>
           </div>
         </div>

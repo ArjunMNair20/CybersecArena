@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useProgress, overallScore } from '../lib/progress';
+import { useProgress } from '../lib/progress';
 import { useAuth } from '../contexts/AuthContext';
 import leaderboardService, { LeaderboardEntry } from '../services/leaderboardService';
-import { CTF_TASKS } from '../data/ctf';
 import { Trophy, Medal, Award, Loader2 } from 'lucide-react';
 
 export default function Leaderboard() {
@@ -11,206 +10,19 @@ export default function Leaderboard() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // Calculate current user's score breakdown
-  const userScores = useMemo(() => {
+  const [syncStatus, setSyncStatus] = useState<string>('');
+
+  // ===== CORRECT MAX VALUES from actual data =====
+  const MAX_CTF = 67;
+  const MAX_PHISH = 145;
+  const MAX_CODE = 50;
+  const MAX_QUIZ = 79;
+  const MAX_FIREWALL = 100;
+
+  // Calculate current user's actual progress counts for sync
+  const userProgress = useMemo(() => {
     if (!state) return null;
-    const scores = {
-      total: overallScore(state),
-      ctf: state.ctf.solvedIds.length * 100,
-      phish: state.phish.solvedIds.length * 150,
-      code: state.code.solvedIds.length * 150,
-      quiz: state.quiz.correct * 80,
-      firewall: state.firewall.bestScore * 20,
-    };
-    console.log('[Leaderboard] userScores computed:', scores);
-    return scores;
-  }, [state]);
-
-  // Sync user's score to database when it changes
-  useEffect(() => {
-    if (!user || !userScores) {
-      console.log('[Leaderboard] Score sync skipped: user or userScores missing', { user: !!user, userScores: !!userScores });
-      return;
-    }
-
-    const syncScore = async () => {
-      try {
-        console.log('[Leaderboard] Syncing score to Supabase for user:', user.id, 'scores:', userScores);
-        
-        // Also pass progress details for richer leaderboard display
-        const progressPayload = {
-          ctf_solved_count: state.ctf.solvedIds.length,
-          phish_solved_count: state.phish.solvedIds.length,
-          code_solved_count: state.code.solvedIds.length,
-          quiz_answered: state.quiz.answered,
-          quiz_correct: state.quiz.correct,
-          firewall_best_score: state.firewall.bestScore,
-          badges: state.badges,
-        };
-
-        await leaderboardService.syncUserScore(
-          user.id,
-          user.username,
-          userScores,
-          progressPayload
-        );
-        console.log('[Leaderboard] Score synced to Supabase successfully');
-      } catch (err) {
-        console.error('[Leaderboard] Failed to sync score to Supabase:', err);
-      }
-    };
-
-    // Sync immediately with minimal debounce (300ms) for real-time updates
-    const timeoutId = setTimeout(syncScore, 300);
-    return () => clearTimeout(timeoutId);
-  }, [user, userScores, state]);
-
-  // Load leaderboard and subscribe to real-time updates
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-
-    console.log('[Leaderboard] Loading leaderboard...');
-
-    // IMPORTANT: Sync current user's progress to database IMMEDIATELY on mount
-    // This ensures their latest progress is visible even after refresh or sign-out/sign-in
-    const syncCurrentUserAndLoad = async () => {
-      try {
-        if (user && state) {
-          console.log('[Leaderboard] Syncing current user progress on mount for:', user.id);
-          
-          // Calculate and sync current user's scores immediately
-          const userScores = {
-            total: overallScore(state),
-            ctf: state.ctf.solvedIds.length * 100,
-            phish: state.phish.solvedIds.length * 150,
-            code: state.code.solvedIds.length * 150,
-            quiz: state.quiz.correct * 80,
-            firewall: state.firewall.bestScore * 20,
-          };
-
-          const progressPayload = {
-            ctf_solved_count: state.ctf.solvedIds.length,
-            phish_solved_count: state.phish.solvedIds.length,
-            code_solved_count: state.code.solvedIds.length,
-            quiz_answered: state.quiz.answered,
-            quiz_correct: state.quiz.correct,
-            firewall_best_score: state.firewall.bestScore,
-            badges: state.badges,
-          };
-
-          // Sync immediately (not debounced) on mount
-          await leaderboardService.syncUserScore(user.id, user.username, userScores, progressPayload);
-          console.log('[Leaderboard] Current user progress synced on mount');
-        }
-      } catch (err) {
-        console.error('[Leaderboard] Failed to sync current user on mount:', err);
-        // Don't block leaderboard load if sync fails
-      }
-    };
-
-    // Try to read cached leaderboard snapshot to show immediately
-    try {
-      const cacheRaw = localStorage.getItem('leaderboard_cache_v1');
-      if (cacheRaw) {
-        const parsed = JSON.parse(cacheRaw);
-        if (parsed?.entries && Array.isArray(parsed.entries) && parsed.entries.length > 0) {
-          // Map lite entries into LeaderboardEntry-ish objects for immediate display
-          const cachedEntries = (parsed.entries as any[]).map((e, idx) => ({
-            id: e.id || `cached-${idx}`,
-            user_id: e.user_id,
-            username: e.username,
-            name: e.name || null,
-            avatar_url: e.avatar_url || null,
-            total_score: e.total_score || 0,
-            ctf_score: e.ctf_solved_count ? e.ctf_solved_count * 100 : 0,
-            phish_score: e.phish_solved_count ? e.phish_solved_count * 150 : 0,
-            code_score: e.code_solved_count ? e.code_solved_count * 150 : 0,
-            quiz_score: 0,
-            firewall_score: 0,
-            rank: e.rank || idx + 1,
-            last_updated: parsed.ts ? new Date(parsed.ts).toISOString() : new Date().toISOString(),
-            ctf_solved_count: e.ctf_solved_count,
-            phish_solved_count: e.phish_solved_count,
-            code_solved_count: e.code_solved_count,
-          } as LeaderboardEntry));
-
-          if (cachedEntries.length > 0) {
-            console.log('[Leaderboard] Loaded cached entries:', cachedEntries.length);
-            setEntries(cachedEntries);
-            setLoading(false); // show cached immediately
-          }
-        }
-      }
-    } catch (err) {
-      console.log('[Leaderboard] Cache read error:', err);
-      // ignore parse errors
-    }
-
-    // Sync current user and ensure leaderboard entry exists
-    syncCurrentUserAndLoad();
-
-    // Ensure current user has a leaderboard entry (non-blocking)
-    if (user) {
-      leaderboardService.ensureLeaderboardEntry(user.id, user.username).catch(() => {
-        // Silent fail - doesn't block leaderboard load
-      });
-    }
-
-    // Load fresh leaderboard in background and update entries when available
-    leaderboardService.getLeaderboard(50)
-      .then((data) => {
-        console.log('[Leaderboard] Fresh leaderboard loaded:', data.length, 'entries');
-        setEntries(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('[Leaderboard] Failed to load:', err);
-        setError('Failed to load leaderboard');
-        setLoading(false);
-      });
-
-    // Subscribe to real-time updates
-    const unsubscribe = leaderboardService.subscribeToLeaderboard((updatedEntries) => {
-      console.log('[Leaderboard] Real-time update received:', updatedEntries.length);
-      setEntries(updatedEntries);
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [user, state]);
-
-  // Find current user's entry
-  const currentUserEntry = useMemo(() => {
-    if (!user) return null;
-    return entries.find((entry) => entry.user_id === user.id);
-  }, [entries, user]);
-
-  // Merge local progress into the entries so user's score updates immediately
-  useEffect(() => {
-    if (!user || !userScores) {
-      console.log('[Leaderboard] Merge skipped: user or userScores missing', { user: !!user, userScores: !!userScores });
-      return;
-    }
-
-    console.log('[Leaderboard] Merging local progress. Current entries:', entries.length, 'New userScores:', userScores);
-
-    // Prepare a local entry object from current progress
-    const localEntry: LeaderboardEntry = {
-      id: `local-${user.id}`,
-      user_id: user.id,
-      username: user.username || '',
-      name: user.name || null,
-      avatar_url: (user as any)?.avatar_url || null,
-      total_score: userScores.total,
-      ctf_score: userScores.ctf,
-      phish_score: userScores.phish,
-      code_score: userScores.code,
-      quiz_score: userScores.quiz,
-      firewall_score: userScores.firewall,
-      last_updated: new Date().toISOString(),
+    return {
       ctf_solved_count: state.ctf.solvedIds.length,
       phish_solved_count: state.phish.solvedIds.length,
       code_solved_count: state.code.solvedIds.length,
@@ -218,31 +30,230 @@ export default function Leaderboard() {
       quiz_correct: state.quiz.correct,
       firewall_best_score: state.firewall.bestScore,
       badges: state.badges,
-      rank: 0,
+    };
+  }, [state]);
+
+  // Calculate current user's scores CORRECTLY using actual counts
+  const userScores = useMemo(() => {
+    if (!state || !userProgress) return null;
+    
+    const ctfPercent = Math.min(100, (userProgress.ctf_solved_count / MAX_CTF) * 100);
+    const phishPercent = Math.min(100, (userProgress.phish_solved_count / MAX_PHISH) * 100);
+    const codePercent = Math.min(100, (userProgress.code_solved_count / MAX_CODE) * 100);
+    const quizPercent = Math.min(100, (userProgress.quiz_correct / MAX_QUIZ) * 100);
+    const firewallPercent = Math.min(100, (userProgress.firewall_best_score / MAX_FIREWALL) * 100);
+    
+    const overallPercent = (ctfPercent + phishPercent + codePercent + quizPercent + firewallPercent) / 5;
+    const totalScore = Math.round(overallPercent * 10);
+
+    const scores = {
+      total: totalScore,
+      ctf: Math.round(ctfPercent * 10),
+      phish: Math.round(phishPercent * 10),
+      code: Math.round(codePercent * 10),
+      quiz: Math.round(quizPercent * 10),
+      firewall: Math.round(firewallPercent * 10),
+    };
+    console.log('[Leaderboard] userScores computed (CORRECT):', scores);
+    return scores;
+  }, [state, userProgress]);
+
+  // Force sync button handler
+  const handleForceSyncClick = async () => {
+    if (!user || !userScores || !state || !userProgress) {
+      setSyncStatus('❌ Missing user or progress data');
+      return;
+    }
+
+    setSyncStatus('⏳ Syncing...');
+    console.log('[Leaderboard] ╔════════════════════════════════════════╗');
+    console.log('[Leaderboard] ║      FORCE SYNC - ACTUAL PROGRESS       ║');
+    console.log('[Leaderboard] ╚════════════════════════════════════════╝');
+    console.log('[Leaderboard] User ID:', user.id);
+    console.log('[Leaderboard] Username:', user.username);
+    console.log('[Leaderboard] ');
+    console.log('[Leaderboard] ╔═══ REAL COUNTS FROM APP STATE ═══╗');
+    console.log('[Leaderboard] ║ CTF Solved:', userProgress.ctf_solved_count);
+    console.log('[Leaderboard] ║ Phish Solved:', userProgress.phish_solved_count);
+    console.log('[Leaderboard] ║ Code Solved:', userProgress.code_solved_count);
+    console.log('[Leaderboard] ║ Quiz Correct:', userProgress.quiz_correct, '/', userProgress.quiz_answered);
+    console.log('[Leaderboard] ║ Firewall Score:', userProgress.firewall_best_score);
+    console.log('[Leaderboard] ╚════════════════════════════════════════╝');
+    
+    try {
+      console.log('[Leaderboard] Sending to database:', userProgress);
+      
+      await leaderboardService.syncUserScore(
+        user.id,
+        user.username,
+        userScores,
+        userProgress
+      );
+
+      setSyncStatus('✅ Synced! Refreshing leaderboard...');
+      console.log('[Leaderboard] ✅ SYNC SUCCESS - Data sent to database');
+
+      // Refresh leaderboard after sync
+      setTimeout(async () => {
+        const data = await leaderboardService.getLeaderboard(100);
+        setEntries(data);
+        setSyncStatus('✅ Leaderboard updated with your real progress!');
+        console.log('[Leaderboard] Leaderboard refreshed with', data.length, 'entries');
+        setTimeout(() => setSyncStatus(''), 3000);
+      }, 500);
+    } catch (err) {
+      setSyncStatus('❌ Sync failed: ' + (err instanceof Error ? err.message : String(err)));
+      console.error('[Leaderboard] ❌ FORCE SYNC ERROR:', err);
+    }
+  };
+
+  // Refresh leaderboard data
+  const handleRefreshClick = async () => {
+    setSyncStatus('⏳ Refreshing leaderboard...');
+    try {
+      console.log('[Leaderboard] MANUAL REFRESH: Loading latest leaderboard data');
+      const data = await leaderboardService.getLeaderboard(100);
+      setEntries(data);
+      setSyncStatus('✅ Leaderboard refreshed!');
+      console.log('[Leaderboard] Leaderboard refreshed with', data.length, 'entries');
+      setTimeout(() => setSyncStatus(''), 2000);
+    } catch (err) {
+      setSyncStatus('❌ Refresh failed: ' + (err instanceof Error ? err.message : String(err)));
+      console.error('[Leaderboard] ❌ REFRESH ERROR:', err);
+    }
+  }
+
+  // Sync user's score to database when it changes - AGGRESSIVE real-time syncing
+  // This runs frequently as progress updates, but doesn't reload the entire leaderboard
+  useEffect(() => {
+    if (!user || !userScores || !userProgress) {
+      console.log('[Leaderboard] Score sync skipped: user or userScores missing', { user: !!user, userScores: !!userScores });
+      return;
+    }
+
+    const syncScore = async () => {
+      try {
+        console.log('[Leaderboard] BACKGROUND SYNC: Real counts - CTF:', userProgress.ctf_solved_count, 'Phish:', userProgress.phish_solved_count, 'Code:', userProgress.code_solved_count, 'Quiz:', userProgress.quiz_correct);
+        
+        await leaderboardService.syncUserScore(
+          user.id,
+          user.username,
+          userScores,
+          userProgress
+        );
+        console.log('[Leaderboard] BACKGROUND SYNC SUCCESS: Synced counts to database');
+      } catch (err) {
+        console.error('[Leaderboard] BACKGROUND SYNC ERROR: Failed to sync:', err);
+      }
     };
 
-    console.log('[Leaderboard] Local entry prepared:', localEntry);
+    // Sync with debounce (50ms) for real-time updates
+    const timeoutId = setTimeout(syncScore, 50);
+    return () => clearTimeout(timeoutId);
+  }, [user, userScores, userProgress]);
 
-    // Merge and sort
-    const withoutLocal = entries.filter(e => e.user_id !== user.id);
-    const merged = [...withoutLocal, localEntry].sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
+  // Load leaderboard - SIMPLE AND DIRECT
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
 
-    // Recompute ranks
-    merged.forEach((e, idx) => (e.rank = idx + 1));
+    console.log('[Leaderboard] ====== PAGE LOAD START ======');
+    console.log('[Leaderboard] User:', user?.username || 'not logged in');
+    console.log('[Leaderboard] State loaded:', !!state);
+    console.log('[Leaderboard] userProgress:', userProgress);
+    console.log('[Leaderboard] userScores:', userScores);
 
-    console.log('[Leaderboard] Merged entries:', merged);
+    const loadLeaderboard = async () => {
+      try {
+        // Step 1: Sync CURRENT USER'S PROGRESS FIRST with immediate force
+        if (user && userScores && userProgress) {
+          try {
+            console.log('[Leaderboard] ====== IMMEDIATE SYNC START ======');
+            console.log('[Leaderboard] Forcing sync of current user progress BEFORE loading leaderboard');
+            console.log('[Leaderboard] User ID:', user.id);
+            console.log('[Leaderboard] Username:', user.username);
+            console.log('[Leaderboard] Progress data:', {
+              ctf: userProgress.ctf_solved_count,
+              phish: userProgress.phish_solved_count,
+              code: userProgress.code_solved_count,
+              quiz_correct: userProgress.quiz_correct,
+              firewall: userProgress.firewall_best_score,
+            });
+            console.log('[Leaderboard] Calculated scores:', userScores);
+            
+            await leaderboardService.syncUserScore(
+              user.id,
+              user.username,
+              userScores,
+              userProgress
+            );
+            console.log('[Leaderboard] ✅ User progress synced successfully');
+            console.log('[Leaderboard] ====== IMMEDIATE SYNC COMPLETE ======');
 
-    // Only update if changed (simple check on user's rank or score)
-    const existing = entries.find(e => e.user_id === user.id);
-    const needsUpdate = !existing || existing.total_score !== localEntry.total_score || existing.rank !== (merged.findIndex(e => e.user_id === user.id) + 1);
-    
-    console.log('[Leaderboard] Needs update?', needsUpdate, { existing: !!existing, existingScore: existing?.total_score, newScore: localEntry.total_score });
-    
-    if (needsUpdate) {
-      setEntries(merged);
+            // Force a small delay to ensure database write completes
+            await new Promise(resolve => setTimeout(resolve, 200));
+          } catch (syncErr) {
+            console.error('[Leaderboard] ❌ IMMEDIATE SYNC FAILED:', syncErr);
+            if (syncErr instanceof Error) {
+              console.error('[Leaderboard] Error message:', syncErr.message);
+              console.error('[Leaderboard] Error stack:', syncErr.stack);
+            }
+            console.warn('[Leaderboard] ⚠️  Will continue loading leaderboard anyway...');
+          }
+        } else {
+          console.log('[Leaderboard] ⚠️  Cannot sync: user=' + !!user + ', userScores=' + !!userScores + ', userProgress=' + !!userProgress);
+        }
+
+        // Step 2: Load the leaderboard data
+        console.log('[Leaderboard] ====== FETCH START ======');
+        console.log('[Leaderboard] Fetching leaderboard from database...');
+        const data = await leaderboardService.getLeaderboard(100);
+        
+        console.log('[Leaderboard] Fetch complete. Details:');
+        console.log('[Leaderboard] - Total entries:', data?.length || 0);
+        console.log('[Leaderboard] - Empty result:', !data || data.length === 0);
+
+        if (data && data.length > 0) {
+          console.log('[Leaderboard] ✓ Success! Loaded', data.length, 'entries');
+          console.log('[Leaderboard] ✓ ENTRIES FROM DATABASE:');
+          data.slice(0, 5).forEach((entry, idx) => {
+            console.log(`  [${idx + 1}] ${entry.username}: CTF=${entry.ctf_solved_count}, Phish=${entry.phish_solved_count}, Code=${entry.code_solved_count}, Quiz=${entry.quiz_correct}, Score=${entry.total_score}`);
+          });
+          console.log('[Leaderboard] ====== FETCH COMPLETE ======');
+          setEntries(data);
+        } else {
+          console.log('[Leaderboard] ⚠️  No leaderboard entries returned');
+          console.log('[Leaderboard] ====== FETCH COMPLETE (EMPTY) ======');
+          setError('No leaderboard data available');
+        }
+      } catch (err) {
+        console.error('[Leaderboard] Error during load:', err);
+        setError('Failed to load leaderboard: ' + (err instanceof Error ? err.message : String(err)));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadLeaderboard();
+  }, [user, userScores, userProgress]);
+
+  // Find current user's entry
+  const currentUserEntry = useMemo(() => {
+    if (!user) return null;
+    return entries.find((entry) => entry.user_id === user.id);
+  }, [entries, user]);
+
+  // Merge local progress into the entries for real-time updates
+  // SIMPLIFIED: Only show data from database, don't merge unless user requests it
+  useEffect(() => {
+    if (!user | !entries || entries.length === 0) {
+      return;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, userScores, state.ctf.solvedIds.length, state.phish.solvedIds.length, state.code.solvedIds.length, state.quiz.answered, state.quiz.correct, state.firewall.bestScore]);
+
+    console.log('[Leaderboard] Checking for real-time score updates...');
+    console.log('[Leaderboard] Current entries:', entries.length, 'User in list:', !!entries.find(e => e.user_id === user.id));
+
+  }, [entries, user]);
 
   // Get rank icon
   const getRankIcon = (rank: number) => {
@@ -265,15 +276,51 @@ export default function Leaderboard() {
     return sum;
   };
 
+  // Calculate overall progress percentage based on entry data
+  // Uses the CORRECT max values from actual data files
+  const getEntryProgressPercent = (entry: LeaderboardEntry) => {
+    if (!entry) return 0;
+    
+    const ctfPercent = Math.min(100, ((entry.ctf_solved_count || 0) / MAX_CTF) * 100);
+    const phishPercent = Math.min(100, ((entry.phish_solved_count || 0) / MAX_PHISH) * 100);
+    const codePercent = Math.min(100, ((entry.code_solved_count || 0) / MAX_CODE) * 100);
+    const quizPercent = Math.min(100, ((entry.quiz_correct || 0) / MAX_QUIZ) * 100);
+    const firewallPercent = Math.min(100, ((entry.firewall_best_score || 0) / MAX_FIREWALL) * 100);
+    
+    const overall = (ctfPercent + phishPercent + codePercent + quizPercent + firewallPercent) / 5;
+    return Math.round(overall);
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold score-glow mb-2">Leaderboard</h1>
         <p className="text-slate-400">Top players ranked by total score</p>
+        {syncStatus && (
+          <p className="text-sm mt-2 px-3 py-2 rounded bg-[#8B5CF6]/10 border border-[#8B5CF6]/30 text-[#8B5CF6]">
+            {syncStatus}
+          </p>
+        )}
+        {user && userScores && (
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={handleForceSyncClick}
+              className="px-4 py-2 text-sm bg-[#8B5CF6]/20 hover:bg-[#8B5CF6]/30 border border-[#8B5CF6]/50 rounded text-[#8B5CF6] transition-colors"
+            >
+              🔄 Force Sync My Progress
+            </button>
+            <button
+              onClick={handleRefreshClick}
+              className="px-4 py-2 text-sm bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 rounded text-blue-400 transition-colors"
+            >
+              🔃 Refresh Leaderboard
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Current User's Position */}
-      {currentUserEntry && (
+      {currentUserEntry ? (
         <div className="leaderboard-glow border border-[#8B5CF6]/40 rounded-lg p-4 bg-[#8B5CF6]/5">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
@@ -290,28 +337,32 @@ export default function Leaderboard() {
                 <p className="text-2xl font-bold score-glow">{getEntryTotal(currentUserEntry)}</p>
                 <p className="text-xs text-slate-500">Total Score</p>
               </div>
-              {(currentUserEntry.ctf_solved_count !== undefined || 
-                currentUserEntry.phish_solved_count !== undefined || 
-                currentUserEntry.code_solved_count !== undefined) && (
+              <div className="text-right">
+                <p className="text-2xl font-bold text-[#8B5CF6]">{getEntryProgressPercent(currentUserEntry)}%</p>
+                <p className="text-xs text-slate-500">Overall Progress</p>
+              </div>
+              {(currentUserEntry.ctf_solved_count !== undefined && currentUserEntry.ctf_solved_count >= 0 || 
+                currentUserEntry.phish_solved_count !== undefined && currentUserEntry.phish_solved_count >= 0 || 
+                currentUserEntry.code_solved_count !== undefined && currentUserEntry.code_solved_count >= 0) && (
                 <div className="hidden md:block border-l border-[#FF6F61]/20 pl-6">
                   <p className="text-xs text-slate-400 mb-2">Your Progress</p>
                   <div className="flex flex-col gap-1 text-xs">
                     <div className="flex items-center gap-2">
                       <span className="text-[#8B5CF6]">CTF Solved:</span>
-                      <span className="text-slate-300">{currentUserEntry.ctf_solved_count || 0}</span>
+                      <span className="text-slate-300">{currentUserEntry.ctf_solved_count ?? 0}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-fuchsia-400">Phish Solved:</span>
-                      <span className="text-slate-300">{currentUserEntry.phish_solved_count || 0}</span>
+                      <span className="text-slate-300">{currentUserEntry.phish_solved_count ?? 0}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-green-400">Code Solved:</span>
-                      <span className="text-slate-300">{currentUserEntry.code_solved_count || 0}</span>
+                      <span className="text-slate-300">{currentUserEntry.code_solved_count ?? 0}</span>
                     </div>
                     {currentUserEntry.quiz_answered !== undefined && currentUserEntry.quiz_answered > 0 && (
                       <div className="flex items-center gap-2">
                         <span className="text-yellow-400">Quiz:</span>
-                        <span className="text-slate-300">{currentUserEntry.quiz_correct || 0}/{currentUserEntry.quiz_answered}</span>
+                        <span className="text-slate-300">{currentUserEntry.quiz_correct ?? 0}/{currentUserEntry.quiz_answered}</span>
                       </div>
                     )}
                   </div>
@@ -320,7 +371,21 @@ export default function Leaderboard() {
             </div>
           </div>
         </div>
-      )}
+      ) : user && userScores ? (
+        <div className="leaderboard-glow border border-[#8B5CF6]/40 rounded-lg p-4 bg-[#8B5CF6]/5">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <div className="text-slate-400 text-sm font-medium">Loading your position...</div>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="text-right">
+                <p className="text-2xl font-bold score-glow">{userScores.total}</p>
+                <p className="text-xs text-slate-500">Total Score</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Loading State */}
       {loading && (
@@ -411,14 +476,15 @@ export default function Leaderboard() {
                         {entry.quiz_score}
                       </td>
                       <td className="px-4 py-3 text-right hidden lg:table-cell">
-                        <div className="flex flex-col gap-1 text-xs text-slate-400">
+                        <div className="flex flex-col gap-2 text-xs text-slate-400">
+                          <div className="font-bold text-[#8B5CF6] pb-1 border-b border-[#8B5CF6]/20">
+                            Overall: {getEntryProgressPercent(entry)}%
+                          </div>
                           <div className="flex items-center justify-end gap-2">
                             <span className="text-[#8B5CF6]">CTF:</span>
                             <span>
                               {entry.ctf_solved_count || 0}
-                              {CTF_TASKS && CTF_TASKS.length > 0 ? (
-                                <span className="ml-2 text-slate-500">({Math.round(((entry.ctf_solved_count || 0) / CTF_TASKS.length) * 100)}%)</span>
-                              ) : null}
+                              <span className="ml-2 text-slate-500">({Math.round(((entry.ctf_solved_count || 0) / MAX_CTF) * 100)}%)</span>
                             </span>
                           </div>
                           <div className="flex items-center justify-end gap-2">

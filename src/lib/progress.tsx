@@ -16,6 +16,7 @@ export type ProgressContextType = {
   markCTFSolved: (id: string) => void;
   markPhishSolved: (id: string) => void;
   markCodeSolved: (id: string) => void;
+  markWeeklySolved: (id: string) => void;
   recordQuiz: (correct: boolean) => void;
   setQuizDifficulty: (difficulty: Difficulty) => void;
   setFirewallBest: (score: number) => void;
@@ -25,8 +26,10 @@ export type ProgressContextType = {
   resetCode: () => void;
   resetQuiz: () => void;
   resetFirewall: () => void;
+  resetWeekly: () => void;
   syncProgress: () => Promise<void>;
   newBadges: string[];
+  dispatch: (action: any) => void;
 };
 
 export interface AchievementContextType {
@@ -117,6 +120,14 @@ export function ProgressProvider({ children, storage }: ProgressProviderProps) {
           newlyEarned.forEach(() => {
             soundService.playBadgeUnlock();
           });
+
+          // Clear newBadges after a short delay to allow Display to show
+          setTimeout(() => {
+            setNewBadges([]);
+          }, 100);
+        } else {
+          // No new badges, clear the list
+          setNewBadges([]);
         }
 
         // Update state if badges were added
@@ -209,6 +220,35 @@ export function ProgressProvider({ children, storage }: ProgressProviderProps) {
           firewall: defaultProgress.firewall,
         }));
       },
+      resetWeekly: () => {
+        setState(s => ({
+          ...s,
+          weekly: defaultProgress.weekly,
+        }));
+      },
+      markWeeklySolved: (id) =>
+        setState((s) => ({
+          ...s,
+          weekly: { ...s.weekly, solvedIds: Array.from(new Set([...s.weekly.solvedIds, id])) },
+        })),
+      dispatch: (action: any) => {
+        switch (action.type) {
+          case 'MARK_WEEKLY_SOLVED':
+            setState((s) => ({
+              ...s,
+              weekly: { ...s.weekly, solvedIds: Array.from(new Set([...s.weekly.solvedIds, action.payload])) },
+            }));
+            break;
+          case 'UPDATE_WEEKLY':
+            setState((s) => ({
+              ...s,
+              weekly: action.payload,
+            }));
+            break;
+          default:
+            break;
+        }
+      },
       // Explicit sync method to save progress immediately (e.g., before logout)
       syncProgress: async () => {
         try {
@@ -241,16 +281,32 @@ export function useSyncProgressToLeaderboard() {
   const { state } = useProgress();
 
   return useCallback(async (user: { id: string; username: string } | null) => {
-    if (!user) return;
+    if (!user || !state) return;
 
     try {
+      // Calculate scores correctly using actual progress percentages
+      const calculationService = new ProgressCalculationService();
+      const MAX_CTF = 67;
+      const MAX_PHISH = 145;
+      const MAX_CODE = 50;
+      const MAX_QUIZ = 79;
+      const MAX_FIREWALL = 100;
+
+      const ctfPercent = Math.min(100, (state.ctf.solvedIds.length / MAX_CTF) * 100);
+      const phishPercent = Math.min(100, (state.phish.solvedIds.length / MAX_PHISH) * 100);
+      const codePercent = Math.min(100, (state.code.solvedIds.length / MAX_CODE) * 100);
+      const quizPercent = Math.min(100, (state.quiz.correct / MAX_QUIZ) * 100);
+      const firewallPercent = Math.min(100, (state.firewall.bestScore / MAX_FIREWALL) * 100);
+      
+      const overallPercent = (ctfPercent + phishPercent + codePercent + quizPercent + firewallPercent) / 5;
+      
       const userScores = {
-        total: overallScore(state),
-        ctf: state.ctf.solvedIds.length * 100,
-        phish: state.phish.solvedIds.length * 150,
-        code: state.code.solvedIds.length * 150,
-        quiz: state.quiz.correct * 80,
-        firewall: state.firewall.bestScore * 20,
+        total: Math.round(overallPercent * 10),
+        ctf: Math.round(ctfPercent * 10),
+        phish: Math.round(phishPercent * 10),
+        code: Math.round(codePercent * 10),
+        quiz: Math.round(quizPercent * 10),
+        firewall: Math.round(firewallPercent * 10),
       };
 
       const progressPayload = {

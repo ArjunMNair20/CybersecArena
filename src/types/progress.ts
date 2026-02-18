@@ -7,6 +7,7 @@ export type ProgressState = {
   quiz: { answered: number; correct: number; difficulty: Difficulty };
   firewall: { bestScore: number };
   badges: string[];
+  weekly: { weekNumber: number; solvedIds: string[] };
 };
 
 export const defaultProgress: ProgressState = {
@@ -16,4 +17,5 @@ export const defaultProgress: ProgressState = {
   quiz: { answered: 0, correct: 0, difficulty: 'easy' },
   firewall: { bestScore: 0 },
   badges: [],
+  weekly: { weekNumber: 0, solvedIds: [] },
 };

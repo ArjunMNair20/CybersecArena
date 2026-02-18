@@ -1,30 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  User, Edit2, Save, X, Camera, Upload, Settings, 
-  Bell, Volume2, VolumeX, Globe, Moon, Sun, Monitor,
+  User, Edit2, Save, X, Settings, 
+  Bell, Volume2, VolumeX, Moon, Sun, Monitor,
   Eye, EyeOff, Shield, Lock, Unlock, Palette, 
-  Type, Zap, Download, Upload as UploadIcon, RotateCcw,
-  CheckCircle, AlertCircle, Info, LogOut, Trophy, Trash2
+  Type, Zap, Download, RotateCcw,
+  CheckCircle, AlertCircle, LogOut, Trophy, Trash2
 } from 'lucide-react';
-import { useProgress, defaultProgress } from '../lib/progress';
+import { useProgress, useSyncProgressToLeaderboard } from '../lib/progress';
 import { useAuth } from '../contexts/AuthContext';
 import profileService from '../services/profileService';
-import avatar1 from '../assets/avatars/avatar-1.svg';
-import avatar2 from '../assets/avatars/avatar-2.svg';
-import avatar3 from '../assets/avatars/avatar-3.svg';
-import avatar4 from '../assets/avatars/avatar-4.svg';
-import avatar5 from '../assets/avatars/avatar-5.svg';
-import avatar6 from '../assets/avatars/avatar-6.svg';
+import authService from '../services/authService';
+import { BadgeService } from '../services/BadgeService';
+import avatar1 from '../assets/avatars/av1.png';
+import avatar2 from '../assets/avatars/av2.png';
+import avatar3 from '../assets/avatars/av3.png';
+import avatar4 from '../assets/avatars/av4.png';
+import avatar5 from '../assets/avatars/av5.png';
+import avatar6 from '../assets/avatars/av6.png';
 import settingsService from '../services/settingsService';
 import { UserProfile } from '../types/profile';
 import { AppSettings } from '../types/profile';
 import ResetProgressModal from '../components/ResetProgressModal';
 
 export default function Profile() {
-  const { state, reset, setState } = useProgress();
-  const { logout, isAuthenticated } = useAuth();
+  const { state, reset } = useProgress();
+  const syncToLeaderboard = useSyncProgressToLeaderboard();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
+  const badgeService = useMemo(() => new BadgeService(), []);
   const [activeTab, setActiveTab] = useState<'profile' | 'settings'>('profile');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -34,139 +38,45 @@ export default function Profile() {
   const [nameValue, setNameValue] = useState('');
   const [usernameValue, setUsernameValue] = useState('');
   const [bioValue, setBioValue] = useState('');
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string>('');
   const [showAvatarChooser, setShowAvatarChooser] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  const [deleteAccountPassword, setDeleteAccountPassword] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Optimized: Load profile and settings in parallel with timeout
   useEffect(() => {
-    // Load profile immediately (from cache)
-    loadProfile();
-    
-    // Load settings in parallel (non-blocking)
-    Promise.all([
-      loadSettings(),
-      settingsService.initialize()
-    ]).catch(() => {
-      // Silently handle errors
-    });
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const [profileData, settingsData] = await Promise.allSettled([
+          profileService.getProfile(),
+          settingsService.getSettings()
+        ]);
+
+        if (profileData.status === 'fulfilled' && profileData.value) {
+          setProfile(profileData.value);
+          setNameValue(profileData.value.name);
+          setUsernameValue(profileData.value.username);
+          setBioValue(profileData.value.bio || '');
+        }
+        
+        if (settingsData.status === 'fulfilled' && settingsData.value) {
+          setSettings(settingsData.value);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
 
-  // When user signs in, sync any locally-saved profile to the database
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    (async () => {
-      try {
-        const raw = localStorage.getItem('cybersec_arena_profile_v1');
-        if (!raw) return;
-        const local = JSON.parse(raw || '{}');
-        if (local && local.name && String(local.name).trim().length > 0) {
-          // If current in-memory profile doesn't have the same name, push local to DB
-          if (!profile || (profile.name || '').trim() !== String(local.name).trim()) {
-            try {
-              const saved = await profileService.saveProfile({ name: String(local.name).trim() });
-              setProfile(saved);
-              setNameValue(saved.name || '');
-            } catch (e) {
-              console.error('Failed to sync local profile to DB on sign-in:', e);
-            }
-          }
-        }
-        // Sync avatar if present in local cache (upload data URL or save URL)
-        if (local && local.avatar && String(local.avatar).trim().length > 0) {
-          try {
-            const localAvatar = String(local.avatar).trim();
-            const needsSync = !profile || (profile.avatar || '').trim() !== localAvatar;
-            if (needsSync) {
-              // If the avatar is a data URL or asset URL, upload/save via service
-              const updated = await profileService.uploadAvatarFromUrl(localAvatar);
-              setProfile(updated);
-              setAvatarPreview(updated.avatar || localAvatar);
-            }
-          } catch (e) {
-            console.error('Failed to sync local avatar to DB on sign-in:', e);
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
-    })();
-  }, [isAuthenticated]);
-
-  // Reload profile from authoritative source when the user becomes authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      loadProfile();
-    }
-  }, [isAuthenticated]);
-
-  const loadProfile = async () => {
-    // Fast path: read cached profile from localStorage to render immediately
-    try {
-      const raw = localStorage.getItem('cybersec_arena_profile_v1');
-      if (raw) {
-        try {
-          const cached = JSON.parse(raw);
-          setProfile(cached);
-          setNameValue(cached.name || '');
-          setUsernameValue(cached.username || '');
-          setBioValue(cached.bio || '');
-          if (cached.avatar) {
-            setAvatarPreview(cached.avatar);
-          } else {
-            if ('requestIdleCallback' in window) {
-              requestIdleCallback(() => {
-                setAvatarPreview(profileService.generateAvatarSVG(cached.name, cached.username));
-              });
-            } else {
-              setTimeout(() => {
-                setAvatarPreview(profileService.generateAvatarSVG(cached.name, cached.username));
-              }, 0);
-            }
-          }
-        } catch (e) {
-          // ignore parse errors and fall through to fetch
-        }
-      }
-    } catch (e) {
-      // ignore localStorage failures
-    }
-
-    // Background refresh: fetch authoritative profile but don't block initial render
-    profileService.getProfile().then((loaded) => {
-      if (!loaded) return;
-      setProfile(loaded);
-      setNameValue(loaded.name);
-      setUsernameValue(loaded.username);
-      setBioValue(loaded.bio || '');
-
-      if (loaded.avatar) {
-        setAvatarPreview(loaded.avatar);
-      } else {
-        if ('requestIdleCallback' in window) {
-          requestIdleCallback(() => {
-            setAvatarPreview(profileService.generateAvatarSVG(loaded.name, loaded.username));
-          });
-        } else {
-          setTimeout(() => {
-            setAvatarPreview(profileService.generateAvatarSVG(loaded.name, loaded.username));
-          }, 0);
-        }
-      }
-    }).catch(() => {
-      // silent - keep whatever is already shown
-    });
-  };
-
-  const loadSettings = async () => {
-    const loaded = await settingsService.getSettings();
-    setSettings(loaded);
-  };
-
-  const handleSaveName = async () => {
+  const handleSaveName = useCallback(async () => {
     // Allow saving even if `profile` is not yet fully loaded by creating a minimal fallback
     const trimmed = nameValue?.trim();
     if (!trimmed) {
@@ -215,22 +125,21 @@ export default function Profile() {
       console.error('Local fallback failed:', e);
       showMessage('error', 'Failed to update name');
     }
-  };
+  }, [nameValue, profile]);
 
-  const handleSaveUsername = async () => {
+  const handleSaveUsername = useCallback(async () => {
     if (!profile) return;
     try {
       const updated = await profileService.updateUsername(usernameValue);
       setProfile(updated);
       setIsEditingUsername(false);
-      setAvatarPreview(profileService.generateAvatarSVG(updated.name, updated.username));
       showMessage('success', 'Username updated successfully');
     } catch (error: any) {
       showMessage('error', error.message || 'Failed to update username');
     }
-  };
+  }, [profile, usernameValue]);
 
-  const handleSaveBio = async () => {
+  const handleSaveBio = useCallback(async () => {
     if (!profile) return;
     try {
       const updated = await profileService.updateBio(bioValue);
@@ -240,72 +149,25 @@ export default function Profile() {
     } catch (error) {
       showMessage('error', 'Failed to update bio');
     }
-  };
+  }, [profile, bioValue]);
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        showMessage('error', 'Image size must be less than 2MB');
-        return;
-      }
-      if (!file.type.startsWith('image/')) {
-        showMessage('error', 'Please select an image file');
-        return;
-      }
-      setAvatarFile(file);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target?.result as string;
-        setAvatarPreview(dataUrl);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSaveAvatar = async () => {
-    if (!avatarPreview && !avatarFile) return;
+  const handleAvatarSelect = useCallback(async (avatarPath: string) => {
     setIsUploading(true);
     try {
-      let updated;
-      if (avatarFile) {
-        // Upload the selected file to Supabase storage and save resulting public URL
-        updated = await profileService.uploadAvatarBlob(avatarFile, avatarFile.name);
-      } else {
-        // avatarPreview may be a data URL or an asset URL
-        updated = await profileService.uploadAvatarFromUrl(avatarPreview);
-      }
+      // Save avatar directly without uploading
+      const updated = await profileService.updateAvatar(avatarPath);
       setProfile(updated);
-      setAvatarFile(null);
-      setAvatarPreview(updated.avatar || avatarPreview);
-      showMessage('success', 'Avatar saved');
-    } catch (err: any) {
-      console.error('handleSaveAvatar error:', err);
-      const msg = (err && (err.message || String(err))) || 'Failed to update avatar';
-      showMessage('error', msg);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleChooseAvatar = async (src: string) => {
-    setIsUploading(true);
-    try {
       setShowAvatarChooser(false);
-      const updated = await profileService.uploadAvatarFromUrl(src);
-      setProfile(updated);
-      setAvatarPreview(updated.avatar || src);
-      showMessage('success', 'Avatar saved');
-    } catch (err: any) {
-      console.error('choose avatar failed', err);
-      const msg = (err && (err.message || String(err))) || 'Failed to select avatar';
-      showMessage('error', msg);
+      showMessage('success', 'Avatar changed successfully');
+    } catch (error: any) {
+      console.error('Failed to change avatar:', error);
+      showMessage('error', error.message || 'Failed to change avatar');
     } finally {
       setIsUploading(false);
     }
-  };
+  }, []);
 
-  const handleSettingChange = async <K extends keyof AppSettings>(
+  const handleSettingChange = useCallback(async <K extends keyof AppSettings>(
     key: K,
     value: AppSettings[K]
   ) => {
@@ -317,9 +179,9 @@ export default function Profile() {
     } catch (error) {
       showMessage('error', 'Failed to update settings');
     }
-  };
+  }, [settings]);
 
-  const handleNestedSettingChange = async (
+  const handleNestedSettingChange = useCallback(async (
     category: keyof AppSettings,
     key: string,
     value: any
@@ -339,9 +201,9 @@ export default function Profile() {
     } catch (error) {
       showMessage('error', 'Failed to update settings');
     }
-  };
+  }, [settings]);
 
-  const handleResetSettings = async () => {
+  const handleResetSettings = useCallback(async () => {
     if (confirm('Are you sure you want to reset all settings to default?')) {
       try {
         const reset = await settingsService.resetSettings();
@@ -351,25 +213,62 @@ export default function Profile() {
         showMessage('error', 'Failed to reset settings');
       }
     }
-  };
+  }, []);
 
-  const handleResetProgress = async () => {
+  const handleResetProgress = useCallback(async () => {
     setShowResetConfirm(false);
     try {
       // Call the reset function from context to clear progress in memory
       reset();
+      
+      // Immediately sync the reset to the leaderboard so scores drop
+      if (user) {
+        await syncToLeaderboard(user);
+        console.log('[Profile] Progress reset and leaderboard synced');
+      }
+      
       showMessage('success', 'All progress has been reset! You can now start fresh from the beginning.');
     } catch (error) {
+      console.error('[Profile] Failed to reset progress:', error);
       showMessage('error', 'Failed to reset progress');
     }
-  };
+  }, [reset, user, syncToLeaderboard]);
 
-  const showMessage = (type: 'success' | 'error', text: string) => {
+  const showMessage = useCallback((type: 'success' | 'error', text: string) => {
     setSaveMessage({ type, text });
     setTimeout(() => setSaveMessage(null), 3000);
-  };
+  }, []);
 
-  const exportData = async () => {
+  const handleDeleteAccount = useCallback(async () => {
+    if (!deleteAccountPassword.trim()) {
+      showMessage('error', 'Please enter your password to confirm account deletion');
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    try {
+      // Call authService to delete account with password verification
+      await authService.deleteAccount(deleteAccountPassword);
+
+      // Clear local data
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // Log out and redirect
+      await logout();
+      showMessage('success', 'Account deleted successfully');
+      setTimeout(() => navigate('/login', { replace: true }), 2000);
+    } catch (error: any) {
+      console.error('[Profile] Failed to delete account:', error);
+      showMessage('error', error.message || 'Failed to delete account');
+    } finally {
+      setIsDeletingAccount(false);
+      setDeleteAccountPassword('');
+      setShowDeleteAccountConfirm(false);
+    }
+  }, [deleteAccountPassword, logout, navigate, showMessage]);
+
+  const exportData = useCallback(async () => {
     // Create PDF content from progress data
     const ctfCount = state.ctf.solvedIds.length;
     const phishCount = state.phish.solvedIds.length;
@@ -572,8 +471,6 @@ export default function Profile() {
             </div>
           </div>
 
-          <!-- Game Performance section removed (Firewall Defender omitted) -->
-
           <div class="section badges-section">
             <div class="section-title">🏆 Achievements</div>
             <div class="badge-label">Unlocked Badges (${badgeCount})</div>
@@ -614,12 +511,51 @@ export default function Profile() {
 
     document.body.removeChild(element);
     showMessage('success', 'Progress report opened. Use your browser\'s Print function to save as PDF.');
-  };
+  }, [state, profile, showMessage]);
 
-  if (!profile || !settings) {
+  // Optimize progress calculations with useMemo
+  const progressStats = useMemo(() => {
+    const MAX_CTF = 67;
+    const MAX_PHISH = 145;
+    const MAX_CODE = 50;
+    const MAX_QUIZ = 79;
+    const MAX_FIREWALL = 100;
+
+    const ctfPercent = Math.min(100, (state.ctf.solvedIds.length / MAX_CTF) * 100);
+    const phishPercent = Math.min(100, (state.phish.solvedIds.length / MAX_PHISH) * 100);
+    const codePercent = Math.min(100, (state.code.solvedIds.length / MAX_CODE) * 100);
+    const quizPercent = Math.min(100, (state.quiz.correct / MAX_QUIZ) * 100);
+    const firewallPercent = Math.min(100, (state.firewall.bestScore / MAX_FIREWALL) * 100);
+
+    const overallPercent = (ctfPercent + phishPercent + codePercent + quizPercent + firewallPercent) / 5;
+
+    return {
+      ctfPercent,
+      phishPercent,
+      codePercent,
+      quizPercent,
+      firewallPercent,
+      overallPercent: Math.min(100, overallPercent)
+    };
+  }, [state.ctf.solvedIds.length, state.phish.solvedIds.length, state.code.solvedIds.length, state.quiz.correct, state.firewall.bestScore]);
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin text-[#8B5CF6]">Loading...</div>
+        <div className="animate-spin text-[#8B5CF6]">
+          <div className="w-12 h-12 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <AlertCircle size={48} className="mx-auto mb-4 text-red-400" />
+          <p className="text-slate-400">Failed to load profile. Please refresh the page.</p>
+        </div>
       </div>
     );
   }
@@ -685,8 +621,8 @@ export default function Profile() {
             <div className="flex flex-col md:flex-row gap-6 items-start">
               <div className="flex-shrink-0">
                 <div className="w-32 h-32 rounded-full border-2 border-[#8B5CF6]/30 overflow-hidden bg-slate-800 flex items-center justify-center">
-                  {avatarPreview ? (
-                    <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                  {profile?.avatar ? (
+                    <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
                     <User className="text-slate-400" size={48} />
                   )}
@@ -694,37 +630,19 @@ export default function Profile() {
               </div>
               <div className="flex-1 space-y-3">
                 <div className="flex flex-wrap gap-2">
-                  <label className="px-4 py-2 rounded-lg bg-purple-500/20 border border-purple-400/30 text-purple-400 hover:bg-purple-500/30 cursor-pointer transition-colors flex items-center gap-2">
-                    <Upload size={16} />
-                    Upload Image
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAvatarUpload}
-                    />
-                  </label>
-                  
                   <button
                     onClick={() => setShowAvatarChooser(true)}
-                    className="px-4 py-2 rounded-lg bg-violet-500/20 border border-violet-400/30 text-violet-300 hover:bg-violet-500/30 transition-colors flex items-center gap-2"
+                    disabled={isUploading}
+                    className={`px-4 py-2 rounded-lg bg-violet-500/20 border border-violet-400/30 text-violet-300 transition-colors flex items-center gap-2 ${
+                      isUploading ? 'opacity-60 cursor-not-allowed' : 'hover:bg-violet-500/30'
+                    }`}
                   >
                     <User size={16} />
-                    Choose Avatar
+                    Change Avatar
                   </button>
-                  {avatarFile && (
-                    <button
-                      onClick={handleSaveAvatar}
-                      disabled={isUploading}
-                      className={`px-4 py-2 rounded-lg bg-green-500/20 border border-green-400/30 text-green-300 transition-colors flex items-center gap-2 ${isUploading ? 'opacity-60 cursor-not-allowed' : 'hover:bg-green-500/30'}`}
-                    >
-                      <Save size={16} />
-                      Save Avatar
-                    </button>
-                  )}
                 </div>
                 <p className="text-xs text-slate-500">
-                  Upload an image (max 2MB) or generate an avatar with your initials
+                  Select an avatar from the available options
                 </p>
               </div>
             </div>
@@ -735,23 +653,40 @@ export default function Profile() {
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-black/50" onClick={() => setShowAvatarChooser(false)} />
               <div className="relative bg-slate-900 border border-slate-800 rounded-lg p-6 max-w-lg w-full z-10">
-                <h3 className="text-lg font-semibold text-purple-400 mb-4">Choose an Avatar</h3>
-                <div className="grid grid-cols-3 gap-3">
+                <h3 className="text-lg font-semibold text-purple-400 mb-4">Select an Avatar</h3>
+                <div className="grid grid-cols-3 gap-4 mb-6">
                   {[avatar1, avatar2, avatar3, avatar4, avatar5, avatar6].map((src, idx) => (
                     <button
                       key={idx}
-                      onClick={() => handleChooseAvatar(src)}
+                      onClick={() => handleAvatarSelect(src)}
                       disabled={isUploading}
-                      className={`p-2 rounded-lg bg-slate-800 border border-slate-700 transform transition-all ${isUploading ? 'opacity-60 cursor-not-allowed' : 'hover:scale-105'}`}
+                      className={`relative p-3 rounded-lg bg-slate-800 border-2 transition-all ${
+                        profile?.avatar === src
+                          ? 'border-purple-400 shadow-lg shadow-purple-400/50'
+                          : 'border-slate-700 hover:border-slate-600'
+                      } ${
+                        isUploading ? 'opacity-60 cursor-not-allowed' : ''
+                      }`}
                     >
-                      <img src={src} alt={`avatar-${idx + 1}`} className="w-full h-20 object-cover rounded" />
+                      <img
+                        src={src}
+                        alt={`avatar-${idx + 1}`}
+                        className="w-full h-28 object-cover rounded"
+                      />
+                      {profile?.avatar === src && (
+                        <div className="absolute inset-0 flex items-center justify-center rounded">
+                          <div className="bg-purple-500/90 rounded-full p-2">
+                            <CheckCircle size={20} className="text-white" />
+                          </div>
+                        </div>
+                      )}
                     </button>
                   ))}
                 </div>
-                <div className="mt-4 flex justify-end">
+                <div className="flex justify-end">
                   <button
                     onClick={() => setShowAvatarChooser(false)}
-                    className="px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 hover:bg-slate-700 transition-colors"
+                    className="px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 hover:bg-slate-600 transition-colors"
                   >
                     Close
                   </button>
@@ -903,15 +838,20 @@ export default function Profile() {
             </h2>
             {state.badges && state.badges.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {state.badges.map((badge) => (
-                  <div
-                    key={badge}
-                    className="p-4 rounded-lg bg-gradient-to-br from-yellow-500/10 to-amber-500/10 border border-yellow-400/30 text-center hover:scale-105 transition-transform"
-                  >
-                    <div className="text-3xl mb-2">🏆</div>
-                    <p className="text-sm font-semibold text-yellow-300">{badge}</p>
-                  </div>
-                ))}
+                {state.badges.map((badgeId) => {
+                  const badgeDetails = badgeService.getBadgeById(badgeId);
+                  return (
+                    <div
+                      key={badgeId}
+                      className="p-4 rounded-lg bg-gradient-to-br from-yellow-500/10 to-amber-500/10 border border-yellow-400/30 text-center hover:scale-105 transition-transform cursor-pointer group"
+                      title={badgeDetails?.description}
+                    >
+                      <div className="text-3xl mb-2 group-hover:animate-bounce">{badgeDetails?.emoji || '🏆'}</div>
+                      <p className="text-sm font-semibold text-yellow-300">{badgeDetails?.name || badgeId}</p>
+                      <p className="text-xs text-yellow-200/60 mt-1 line-clamp-2">{badgeDetails?.description}</p>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-slate-400">
@@ -933,23 +873,14 @@ export default function Profile() {
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-slate-300">Overall Progress</span>
                   <span className="text-sm font-semibold text-cyan-400">
-                    {Math.round(
-                      ((state.ctf.solvedIds.length + state.phish.solvedIds.length + state.code.solvedIds.length) /
-                        (100 + 20 + 30)) *
-                        100
-                    )}%
+                    {Math.round(progressStats.overallPercent)}%
                   </span>
                 </div>
                 <div className="w-full bg-slate-800 rounded-full h-3">
                   <div
                     className="bg-gradient-to-r from-cyan-500 to-fuchsia-500 h-3 rounded-full transition-all duration-500"
                     style={{
-                      width: `${Math.min(
-                        100,
-                        ((state.ctf.solvedIds.length + state.phish.solvedIds.length + state.code.solvedIds.length) /
-                          (100 + 20 + 30)) *
-                          100
-                      )}%`,
+                      width: `${progressStats.overallPercent}%`,
                     }}
                   />
                 </div>
@@ -970,7 +901,7 @@ export default function Profile() {
                   <div className="w-full bg-slate-800 rounded-full h-2">
                     <div
                       className="bg-cyan-500 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, (state.ctf.solvedIds.length / 100) * 100)}%` }}
+                      style={{ width: `${progressStats.ctfPercent}%` }}
                     />
                   </div>
                 </div>
@@ -986,7 +917,7 @@ export default function Profile() {
                   <div className="w-full bg-slate-800 rounded-full h-2">
                     <div
                       className="bg-fuchsia-500 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, (state.phish.solvedIds.length / 20) * 100)}%` }}
+                      style={{ width: `${progressStats.phishPercent}%` }}
                     />
                   </div>
                 </div>
@@ -1002,7 +933,7 @@ export default function Profile() {
                   <div className="w-full bg-slate-800 rounded-full h-2">
                     <div
                       className="bg-yellow-500 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, (state.code.solvedIds.length / 30) * 100)}%` }}
+                      style={{ width: `${progressStats.codePercent}%` }}
                     />
                   </div>
                 </div>
@@ -1018,12 +949,10 @@ export default function Profile() {
                   <div className="w-full bg-slate-800 rounded-full h-2">
                     <div
                       className="bg-green-500 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, (state.quiz.correct / 50) * 100)}%` }}
+                      style={{ width: `${progressStats.quizPercent}%` }}
                     />
                   </div>
                 </div>
-
-                {/* Firewall Defender removed from UI */}
               </div>
             </div>
           </div>
@@ -1075,7 +1004,13 @@ export default function Profile() {
 
       {/* Settings Tab */}
       {activeTab === 'settings' && (
-        <div className="space-y-6">
+        <>
+          {!settings ? (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-slate-400">Loading settings...</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
           {/* Appearance Settings */}
           <div className="border border-slate-800 rounded-lg p-6 bg-gradient-to-br from-white/[0.03] to-white/[0.01]">
             <h2 className="text-xl font-semibold text-cyan-300 mb-4 flex items-center gap-2">
@@ -1392,18 +1327,36 @@ export default function Profile() {
             {/* Reset Settings */}
             <div className="border border-slate-800 rounded-lg p-6 bg-gradient-to-br from-white/[0.03] to-white/[0.01]">
               <h2 className="text-xl font-semibold text-red-300 mb-4">Danger Zone</h2>
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="text-slate-200 font-medium">Reset All Settings</label>
-                  <p className="text-xs text-slate-500">Restore all settings to their default values</p>
+              <div className="space-y-4">
+                {/* Reset Settings */}
+                <div className="flex items-center justify-between pb-4 border-b border-slate-700/30">
+                  <div>
+                    <label className="text-slate-200 font-medium">Reset All Settings</label>
+                    <p className="text-xs text-slate-500">Restore all settings to their default values</p>
+                  </div>
+                  <button
+                    onClick={handleResetSettings}
+                    className="px-4 py-2 rounded-lg bg-red-500/20 border border-red-400/30 text-red-300 hover:bg-red-500/30 transition-colors flex items-center gap-2"
+                  >
+                    <RotateCcw size={16} />
+                    Reset Settings
+                  </button>
                 </div>
-                <button
-                  onClick={handleResetSettings}
-                  className="px-4 py-2 rounded-lg bg-red-500/20 border border-red-400/30 text-red-300 hover:bg-red-500/30 transition-colors flex items-center gap-2"
-                >
-                  <RotateCcw size={16} />
-                  Reset Settings
-                </button>
+
+                {/* Delete Account */}
+                <div className="flex items-center justify-between pt-2">
+                  <div>
+                    <label className="text-slate-200 font-medium">Delete Account Permanently</label>
+                    <p className="text-xs text-slate-500">Permanently delete your account and all data. This action cannot be undone.</p>
+                  </div>
+                  <button
+                    onClick={() => setShowDeleteAccountConfirm(true)}
+                    className="px-4 py-2 rounded-lg bg-red-600/30 border border-red-500/50 text-red-400 hover:bg-red-600/40 transition-colors flex items-center gap-2 font-medium"
+                  >
+                    <Trash2 size={16} />
+                    Delete Account
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1412,6 +1365,77 @@ export default function Profile() {
 
       {/* Reset Progress Confirmation Modal */}
       <ResetProgressModal isOpen={showResetModal} onClose={() => setShowResetModal(false)} />
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteAccountConfirm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-red-600/50 rounded-lg p-6 max-w-md w-full shadow-2xl">
+            <h3 className="text-lg font-bold text-red-400 mb-2 flex items-center gap-2">
+              <AlertCircle size={20} />
+              Delete Account Permanently?
+            </h3>
+            <p className="text-sm text-slate-300 mb-4">
+              This action is <span className="font-bold text-red-400">permanent and cannot be undone</span>. We will delete:
+            </p>
+            <ul className="text-sm text-slate-400 mb-6 space-y-1 ml-4 list-disc">
+              <li>Your user account and profile</li>
+              <li>All progress and challenge completions</li>
+              <li>All badges and achievements</li>
+              <li>Leaderboard scores and history</li>
+              <li>All settings and preferences</li>
+              <li>Account history and metadata</li>
+            </ul>
+            <p className="text-xs text-red-400 mb-4 font-medium">
+              ⚠️ After deletion, you can sign up again with the same email address as a completely new user.
+            </p>
+            
+            {/* Password confirmation */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-300 mb-2">Enter your password to confirm:</label>
+              <input
+                type="password"
+                value={deleteAccountPassword}
+                onChange={(e) => setDeleteAccountPassword(e.target.value)}
+                placeholder="Your password"
+                className="w-full px-4 py-2 rounded-lg bg-black/40 border border-slate-700 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-red-500/50"
+                disabled={isDeletingAccount}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteAccountConfirm(false);
+                  setDeleteAccountPassword('');
+                }}
+                className="flex-1 px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 transition-colors font-medium disabled:opacity-50"
+                disabled={isDeletingAccount}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={isDeletingAccount || !deleteAccountPassword.trim()}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-600/40 border border-red-500/60 text-red-300 hover:bg-red-600/60 transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isDeletingAccount ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-red-300 border-t-transparent rounded-full animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    Delete Account Permanently
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+            )}
+          </>
+      )}
 
       {/* Old Reset Progress Confirmation Modal - Can be removed */}
       {showResetConfirm && (

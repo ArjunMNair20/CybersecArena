@@ -110,12 +110,22 @@ export default function CTF() {
 
   const submit = (id: string, expected: string) => {
     const val = (answers[id] || '').trim();
-    // Extract content from CSA{...} format if present, or use as-is
-    const expectedContent = expected.replace(/^CSA\{|\}$/g, '');
-    // Accept answer with or without CSA{} wrapper
-    const ok = val === expected || val === expectedContent || 
-               val.toLowerCase() === expected.toLowerCase() || 
-               val.toLowerCase() === expectedContent.toLowerCase();
+    
+    // Extract content from CSA{...} format if user provided it
+    const userContent = val.replace(/^[Cc][Ss][Aa]\{|\}$/g, '');
+    
+    // Prepare expected value - it should be without CSA{} wrapper
+    const expectedContent = expected.replace(/^[Cc][Ss][Aa]\{|\}$/g, '');
+    
+    // Accept answer with or without CSA{} wrapper, case-insensitive
+    const ok = 
+      val === expectedContent ||  // Exact match with plain flag
+      val === 'CSA{' + expectedContent + '}' || // Exact match with CSA wrapper
+      userContent === expectedContent || // Extracted content matches
+      val.toLowerCase() === expectedContent.toLowerCase() || // Case-insensitive plain
+      val.toLowerCase() === 'csa{' + expectedContent.toLowerCase() + '}' || // Case-insensitive with wrapper
+      userContent.toLowerCase() === expectedContent.toLowerCase(); // Case-insensitive extracted
+    
     setFeedback((f) => ({ ...f, [id]: ok ? 'correct' : 'wrong' }));
     if (ok) {
       markCTFSolved(id);

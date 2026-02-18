@@ -10,8 +10,10 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const CTF = lazy(() => import('./pages/CTF'));
 const PhishHunt = lazy(() => import('./pages/PhishHunt'));
 const CodeAndSecure = lazy(() => import('./pages/CodeAndSecure'));
+const WeeklyChallenge = lazy(() => import('./pages/WeeklyChallenge'));
 const AICyberQuizBotLanding = lazy(() => import('./pages/AICyberQuizBotLanding'));
 const AICyberQuizBot = lazy(() => import('./pages/AICyberQuizBot'));
+const AICyberQuizBotStructured = lazy(() => import('./pages/AICyberQuizBotStructured'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const NewsFeed = lazy(() => import('./pages/NewsFeed'));
 const Steganography = lazy(() => import('./pages/Steganography'));
@@ -62,11 +64,13 @@ function App() {
             {/* Protected Routes - Main Application */}
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route path="dashboard" element={<Dashboard />} />
+              <Route path="weekly-challenge" element={<WeeklyChallenge />} />
               <Route path="ctf" element={<CTF />} />
               <Route path="phish-hunt" element={<PhishHunt />} />
               <Route path="code-and-secure" element={<CodeAndSecure />} />
               <Route path="ai-quizbot" element={<AICyberQuizBotLanding />} />
               <Route path="ai-quizbot/:difficulty" element={<AICyberQuizBot />} />
+              <Route path="ai-quiz" element={<AICyberQuizBotStructured />} />
               <Route path="leaderboard" element={<Leaderboard />} />
               <Route path="steganography" element={<Steganography />} />
               <Route path="threat-radar" element={<ThreatRadar />} />

@@ -117,18 +117,21 @@ class AuthService {
       throw new Error('Failed to create account');
     }
 
-    // Create user profile in database
-    const { error: profileError } = await s.from('user_profiles').insert({
+    // Create or update user profile in database using upsert
+    // This ensures the name is saved even if the trigger already created the profile
+    const { error: profileError } = await s.from('user_profiles').upsert({
       id: authData.user.id,
       username: username.toLowerCase(),
       name: name || null,
       email,
+    }, {
+      onConflict: 'id',
     });
 
     if (profileError) {
       // If profile creation fails, we still have the auth user.
       // The profile might be created later or already exist.
-      console.error('Failed to create user profile:', profileError);
+      console.error('Failed to create or update user profile:', profileError);
     }
 
     // Create initial progress entry
@@ -333,6 +336,62 @@ class AuthService {
     if (error) {
       throw new Error(error.message || 'Failed to confirm email');
     }
+  }
+
+  async deleteAccount(password: string): Promise<void> {
+    const s = await this.ensureSupabase();
+
+    // Get current user
+    const {
+      data: { user: authUser },
+      error: userError,
+    } = await s.auth.getUser();
+
+    if (userError || !authUser) {
+      throw new Error('Unable to verify user identity');
+    }
+
+    const userId = authUser.id;
+    const email = authUser.email;
+
+    if (!email) {
+      throw new Error('Unable to find user email');
+    }
+
+    // Verify password by attempting re-authentication
+    const { error: authError } = await s.auth.signInWithPassword({
+      email: this.normalizeEmail(email),
+      password,
+    });
+
+    if (authError) {
+      throw new Error('Invalid password. Account deletion cancelled.');
+    }
+
+    // Delete user progress data
+    await s.from('user_progress').delete().eq('user_id', userId);
+
+    // Delete user settings
+    await s.from('user_settings').delete().eq('user_id', userId);
+
+    // Delete user profile
+    await s.from('user_profiles').delete().eq('id', userId);
+
+    // Delete leaderboard entry
+    await s.from('leaderboard_scores').delete().eq('user_id', userId);
+
+    // Delete the auth user (this is the final step)
+    // Note: In Supabase, deleting the auth user requires the admin API
+    // For client-side deletion, we use signOut after the above deletions
+    
+    const { error: signOutError } = await s.auth.signOut();
+    if (signOutError) {
+      console.error('Error signing out during account deletion:', signOutError);
+    }
+
+    // After all data is deleted, attempt to delete the auth user
+    // This requires an admin client, which we don't have access to from the client
+    // The backend should handle final auth user deletion
   }
 }
 
