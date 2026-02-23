@@ -34,10 +34,8 @@ export default function Profile() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingUsername, setIsEditingUsername] = useState(false);
-  const [isEditingBio, setIsEditingBio] = useState(false);
   const [nameValue, setNameValue] = useState('');
   const [usernameValue, setUsernameValue] = useState('');
-  const [bioValue, setBioValue] = useState('');
   const [showAvatarChooser, setShowAvatarChooser] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -62,7 +60,6 @@ export default function Profile() {
           setProfile(profileData.value);
           setNameValue(profileData.value.name);
           setUsernameValue(profileData.value.username);
-          setBioValue(profileData.value.bio || '');
         }
         
         if (settingsData.status === 'fulfilled' && settingsData.value) {
@@ -138,18 +135,6 @@ export default function Profile() {
       showMessage('error', error.message || 'Failed to update username');
     }
   }, [profile, usernameValue]);
-
-  const handleSaveBio = useCallback(async () => {
-    if (!profile) return;
-    try {
-      const updated = await profileService.updateBio(bioValue);
-      setProfile(updated);
-      setIsEditingBio(false);
-      showMessage('success', 'Bio updated successfully');
-    } catch (error) {
-      showMessage('error', 'Failed to update bio');
-    }
-  }, [profile, bioValue]);
 
   const handleAvatarSelect = useCallback(async (avatarPath: string) => {
     setIsUploading(true);
@@ -786,49 +771,7 @@ export default function Profile() {
             )}
           </div>
 
-          {/* Bio Section */}
-          <div className="border border-slate-800 rounded-lg p-6 bg-gradient-to-br from-white/[0.03] to-white/[0.01]">
-            <h2 className="text-xl font-semibold text-cyan-300 mb-4">Bio</h2>
-            {isEditingBio ? (
-              <div className="space-y-2">
-                <textarea
-                  value={bioValue}
-                  onChange={(e) => setBioValue(e.target.value)}
-                  placeholder="Tell us about yourself..."
-                  rows={4}
-                  className="w-full px-4 py-2 rounded-lg bg-black/40 border border-slate-800 text-slate-200 focus:outline-none focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/30 resize-none"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleSaveBio}
-                    className="px-4 py-2 rounded-lg bg-green-500/20 border border-green-400/30 text-green-300 hover:bg-green-500/30 transition-colors"
-                  >
-                    <Save size={18} />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsEditingBio(false);
-                      setBioValue(profile.bio || '');
-                    }}
-                    className="px-4 py-2 rounded-lg bg-slate-700/50 border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-slate-300">{profile.bio || 'No bio set'}</p>
-                <button
-                  onClick={() => setIsEditingBio(true)}
-                  className="px-4 py-2 rounded-lg bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/30 transition-colors flex items-center gap-2"
-                >
-                  <Edit2 size={16} />
-                  {profile.bio ? 'Edit Bio' : 'Add Bio'}
-                </button>
-              </div>
-            )}
-          </div>
+
 
           {/* Achievement Badges Gallery */}
           <div className="border border-slate-800 rounded-lg p-6 bg-gradient-to-br from-white/[0.03] to-white/[0.01]">
