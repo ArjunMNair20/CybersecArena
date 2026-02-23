@@ -559,37 +559,35 @@ export default function WeeklyChallengeComponent() {
                 </div>
               </div>
             )}
+
+            {/* Feedback - Show if user submitted OR if challenge is in solvedIds */}
+            {(feedback[currentChallenge.id] || state?.weekly?.solvedIds?.includes(currentChallenge.id)) && (
+              <div
+                className={`p-4 rounded-lg border mt-4 ${
+                  (feedback[currentChallenge.id]?.isCorrect ?? true)
+                    ? 'bg-green-500/10 border-green-400/50 text-green-300'
+                    : 'bg-red-500/10 border-red-400/50 text-red-300'
+                }`}
+              >
+                {feedback[currentChallenge.id]?.message ?? '✓ Completed! Great job!'}
+              </div>
+            )}
+
+            {/* Explanation - Show if user submitted OR if challenge is in solvedIds */}
+            {(feedback[currentChallenge.id] || state?.weekly?.solvedIds?.includes(currentChallenge.id)) && (
+              <div className="mt-4 p-4 bg-slate-800/50 border border-slate-700 rounded">
+                <p className="text-slate-300 text-sm">
+                  {currentChallenge.type === 'code' && (currentChallenge.data as any).explanation ||
+                   currentChallenge.type === 'quiz' && (currentChallenge.data as any).explain ||
+                   currentChallenge.type === 'ctf' && 'Check the hint or try another format.' ||
+                   currentChallenge.type === 'phish' && (currentChallenge.data as any).hint ||
+                   'See the question details for more information.'}
+                </p>
+              </div>
+            )}
           </div>
-
-          {/* Feedback - Show if user submitted OR if challenge is in solvedIds */}
-          {(feedback[currentChallenge.id] || state?.weekly?.solvedIds?.includes(currentChallenge.id)) && (
-            <div
-              className={`p-4 rounded-lg border mt-4 ${
-                (feedback[currentChallenge.id]?.isCorrect ?? true)
-                  ? 'bg-green-500/10 border-green-400/50 text-green-300'
-                  : 'bg-red-500/10 border-red-400/50 text-red-300'
-              }`}
-            >
-              {feedback[currentChallenge.id]?.message ?? '✓ Completed! Great job!'}
-            </div>
-          )}
-
-          {/* Explanation - Show if user submitted OR if challenge is in solvedIds */}
-          {(feedback[currentChallenge.id] || state?.weekly?.solvedIds?.includes(currentChallenge.id)) && (
-            <div className="mt-4 p-4 bg-slate-800/50 border border-slate-700 rounded">
-              <p className="text-slate-300 text-sm">
-                {currentChallenge.type === 'code' && (currentChallenge.data as any).explanation ||
-                 currentChallenge.type === 'quiz' && (currentChallenge.data as any).explain ||
-                 currentChallenge.type === 'ctf' && 'Check the hint or try another format.' ||
-                 currentChallenge.type === 'phish' && (currentChallenge.data as any).hint ||
-                 'See the question details for more information.'}
-              </p>
-            </div>
-          )}
         </div>
-      )}
-        </>
-      )}
+      ) : null}
 
       {!isLoading && !error && weeklyChallenges.length === 0 && (
         <div className="p-6 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
