@@ -71,16 +71,22 @@ export function ProgressProvider({ children, storage }: ProgressProviderProps) {
     const loadProgress = async () => {
       try {
         const loaded = await storageService.load();
+        console.log('[ProgressProvider] Loaded from storage:', loaded?.weekly);
+        
         if (loaded && loaded.weekly) {
+          console.log('[ProgressProvider] Loaded weekly data - weekNumber:', loaded.weekly.weekNumber, 'solvedIds:', loaded.weekly.solvedIds.length);
           setState(loaded);
           setPreviousBadges(new Set(loaded.badges));
         } else if (loaded) {
           // Ensure weekly state exists
+          console.log('[ProgressProvider] No weekly in loaded data, initializing with defaults');
           setState({
             ...loaded,
             weekly: loaded.weekly || { weekNumber: 1, solvedIds: [] },
           });
           setPreviousBadges(new Set(loaded.badges));
+        } else {
+          console.log('[ProgressProvider] No data in storage, using defaults');
         }
       } catch (error) {
         console.error('Failed to load progress:', error);
@@ -143,6 +149,7 @@ export function ProgressProvider({ children, storage }: ProgressProviderProps) {
         }
 
         // Save to storage
+        console.log('[ProgressProvider] Saving to storage - weekly:', stateWithBadges.weekly.weekNumber, 'solvedIds:', stateWithBadges.weekly.solvedIds.length);
         await storageService.save(stateWithBadges);
       } catch (error) {
         console.error('Failed to save progress:', error);
