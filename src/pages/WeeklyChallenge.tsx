@@ -588,6 +588,8 @@ export default function WeeklyChallengeComponent() {
           </div>
         </div>
       ) : null}
+        </>
+      )}
 
       {!isLoading && !error && weeklyChallenges.length === 0 && (
         <div className="p-6 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
