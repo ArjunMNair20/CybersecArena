@@ -588,6 +588,7 @@ export default function WeeklyChallengeComponent() {
           </div>
         </div>
       ) : null}
+        </div>
         </>
       )}
 
