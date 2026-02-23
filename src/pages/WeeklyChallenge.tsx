@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Component, ReactNode } from 'react';
 import { getCurrentWeeklyChallenges, getWeekInfo, getCurrentWeekNumber, getUserWeekNumber, WeeklyChallenge } from '../data/weekly';
 import { useProgress, useSyncProgressToLeaderboard } from '../lib/progress';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,9 +11,47 @@ type WeeklyChallengeAnswer = {
   answer: string | number | boolean;
 };
 
-export default function WeeklyChallengeComponent() {
+// Error boundary component to catch rendering errors
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    console.error('[ErrorBoundary] Caught error:', error);
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(_error: Error, errorInfo: { componentStack: string }) {
+    console.error('[ErrorBoundary] Component stack:', errorInfo.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 bg-red-500/10 border border-red-400/50 rounded-lg">
+          <h3 className="text-red-300 font-bold mb-2">Rendering Error</h3>
+          <p className="text-red-400 text-sm mb-2">{this.state.error?.message}</p>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              window.location.reload();
+            }}
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+          >
+            Reload Page
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+function WeeklyChallengeContent() {
   const { state, markWeeklySolved, dispatch } = useProgress();
-  const syncToLeaderboard = useSyncProgressToLeaderboard();
   const { user } = useAuth();
   const [weeklyChallenges, setWeeklyChallenges] = useState<WeeklyChallenge[]>([]);
   const [answers, setAnswers] = useState<Record<string, WeeklyChallengeAnswer>>({});
@@ -24,16 +62,11 @@ export default function WeeklyChallengeComponent() {
   const [error, setError] = useState<string | null>(null);
   const [weeklyInitialized, setWeeklyInitialized] = useState<boolean>(false);
 
-  // Wrap entire component logic in error handler
-  const handleError = (err: any, context: string) => {
-    console.error(`[WeeklyChallenge] Error in ${context}:`, err);
-    const message = err instanceof Error ? err.message : String(err);
-    setError(`Error: ${message}`);
-  };
+
 
   // Calculate week number based on user's signup date
   let currentWeek: number;
-  let weekInfo: any;
+  let weekInfo: Record<string, unknown>;
   let challenges: WeeklyChallenge[];
 
   try {
@@ -116,6 +149,13 @@ export default function WeeklyChallengeComponent() {
 
   const handleCTFSubmit = (challengeId: string, userAnswer: string, correctAnswer: string) => {
     try {
+      console.log('[handleCTFSubmit] Start - challengeId:', challengeId);
+      
+      if (!challengeId) {
+        console.error('[handleCTFSubmit] No challengeId provided');
+        return;
+      }
+
       const userContent = userAnswer.replace(/^[Cc][Ss][Aa]\{|\}$/g, '').trim();
       const correctContent = correctAnswer.replace(/^[Cc][Ss][Aa]\{|\}$/g, '').trim();
       const isCorrect =
@@ -123,90 +163,175 @@ export default function WeeklyChallengeComponent() {
         userAnswer.toLowerCase() === correctContent.toLowerCase() ||
         userContent === correctContent;
 
-      // Update feedback
-      setFeedback((prev) => ({
-        ...prev,
-        [challengeId]: {
-          isCorrect,
-          message: isCorrect ? '✓ Correct! Well done!' : '✗ Incorrect. Try again or view hint.',
-        },
-      }));
+      console.log('[handleCTFSubmit] Is correct:', isCorrect);
+
+      // Update feedback with functional setState
+      setFeedback((prev) => {
+        console.log('[handleCTFSubmit] Updating feedback for:', challengeId);
+        return {
+          ...prev,
+          [challengeId]: {
+            isCorrect,
+            message: isCorrect ? '✓ Correct! Well done!' : '✗ Incorrect. Try again or view hint.',
+          },
+        };
+      });
 
       // If correct, mark as solved and move to next
       if (isCorrect) {
+        console.log('[handleCTFSubmit] Marking as solved:', challengeId);
         markWeeklySolved(challengeId);
-        setTimeout(() => {
-          setSelectedQuestion((prev) => Math.min(prev + 1, totalCount));
+        console.log('[handleCTFSubmit] Scheduling next question in 1200ms');
+        const timer = setTimeout(() => {
+          try {
+            setSelectedQuestion((prev) => {
+              const next = Math.min(prev + 1, totalCount);
+              console.log('[handleCTFSubmit] Advancing question:', prev, '→', next);
+              return next;
+            });
+          } catch (err) {
+            console.error('[handleCTFSubmit] Error advancing question:', err);
+          }
         }, 1200);
+        return () => clearTimeout(timer);
       }
     } catch (error) {
-      console.error('[WeeklyChallenge] CTF submit error:', error);
+      console.error('[handleCTFSubmit] Unexpected error:', error);
     }
   };
 
   const handlePhishSubmit = (challengeId: string, userGuess: boolean, isPhish: boolean) => {
     try {
+      console.log('[handlePhishSubmit] Start - challengeId:', challengeId, 'guess:', userGuess, 'isPhish:', isPhish);
+      
+      if (!challengeId) {
+        console.error('[handlePhishSubmit] No challengeId provided');
+        return;
+      }
+
       const isCorrect = userGuess === isPhish;
-      setFeedback((prev) => ({
-        ...prev,
-        [challengeId]: {
-          isCorrect,
-          message: isCorrect ? '✓ Correct! Good eye!' : `✗ Incorrect. This ${isPhish ? 'is' : 'is not'} a phishing email.`,
-        },
-      }));
+      console.log('[handlePhishSubmit] Is correct:', isCorrect);
+
+      setFeedback((prev) => {
+        console.log('[handlePhishSubmit] Updating feedback for:', challengeId);
+        return {
+          ...prev,
+          [challengeId]: {
+            isCorrect,
+            message: isCorrect ? '✓ Correct! Good eye!' : `✗ Incorrect. This ${isPhish ? 'is' : 'is not'} a phishing email.`,
+          },
+        };
+      });
 
       if (isCorrect) {
+        console.log('[handlePhishSubmit] Marking as solved:', challengeId);
         markWeeklySolved(challengeId);
-        setTimeout(() => {
-          setSelectedQuestion((prev) => Math.min(prev + 1, totalCount));
+        console.log('[handlePhishSubmit] Scheduling next question in 1200ms');
+        const timer = setTimeout(() => {
+          try {
+            setSelectedQuestion((prev) => {
+              const next = Math.min(prev + 1, totalCount);
+              console.log('[handlePhishSubmit] Advancing question:', prev, '→', next);
+              return next;
+            });
+          } catch (err) {
+            console.error('[handlePhishSubmit] Error advancing question:', err);
+          }
         }, 1200);
+        return () => clearTimeout(timer);
       }
     } catch (error) {
-      console.error('[WeeklyChallenge] Phish submit error:', error);
+      console.error('[handlePhishSubmit] Unexpected error:', error);
     }
   };
 
   const handleCodeSubmit = (challengeId: string, userAnswer: number, correctAnswer: number) => {
     try {
+      console.log('[handleCodeSubmit] Start - challengeId:', challengeId, 'answer:', userAnswer, 'correct:', correctAnswer);
+      
+      if (!challengeId) {
+        console.error('[handleCodeSubmit] No challengeId provided');
+        return;
+      }
+
       const isCorrect = userAnswer === correctAnswer;
-      setFeedback((prev) => ({
-        ...prev,
-        [challengeId]: {
-          isCorrect,
-          message: isCorrect ? '✓ Correct! Great security knowledge!' : '✗ Incorrect. Review the explanation.',
-        },
-      }));
+      console.log('[handleCodeSubmit] Is correct:', isCorrect);
+
+      setFeedback((prev) => {
+        console.log('[handleCodeSubmit] Updating feedback for:', challengeId);
+        return {
+          ...prev,
+          [challengeId]: {
+            isCorrect,
+            message: isCorrect ? '✓ Correct! Great security knowledge!' : '✗ Incorrect. Review the explanation.',
+          },
+        };
+      });
 
       if (isCorrect) {
+        console.log('[handleCodeSubmit] Marking as solved:', challengeId);
         markWeeklySolved(challengeId);
-        setTimeout(() => {
-          setSelectedQuestion((prev) => Math.min(prev + 1, totalCount));
+        console.log('[handleCodeSubmit] Scheduling next question in 1200ms');
+        const timer = setTimeout(() => {
+          try {
+            setSelectedQuestion((prev) => {
+              const next = Math.min(prev + 1, totalCount);
+              console.log('[handleCodeSubmit] Advancing question:', prev, '→', next);
+              return next;
+            });
+          } catch (err) {
+            console.error('[handleCodeSubmit] Error advancing question:', err);
+          }
         }, 1200);
+        return () => clearTimeout(timer);
       }
     } catch (error) {
-      console.error('[WeeklyChallenge] Code submit error:', error);
+      console.error('[handleCodeSubmit] Unexpected error:', error);
     }
   };
 
   const handleQuizSubmit = (challengeId: string, userAnswer: number, correctAnswer: number) => {
     try {
+      console.log('[handleQuizSubmit] Start - challengeId:', challengeId, 'answer:', userAnswer, 'correct:', correctAnswer);
+      
+      if (!challengeId) {
+        console.error('[handleQuizSubmit] No challengeId provided');
+        return;
+      }
+
       const isCorrect = userAnswer === correctAnswer;
-      setFeedback((prev) => ({
-        ...prev,
-        [challengeId]: {
-          isCorrect,
-          message: isCorrect ? '✓ Correct! Well done!' : '✗ Incorrect. Study the explanation.',
-        },
-      }));
+      console.log('[handleQuizSubmit] Is correct:', isCorrect);
+
+      setFeedback((prev) => {
+        console.log('[handleQuizSubmit] Updating feedback for:', challengeId);
+        return {
+          ...prev,
+          [challengeId]: {
+            isCorrect,
+            message: isCorrect ? '✓ Correct! Well done!' : '✗ Incorrect. Study the explanation.',
+          },
+        };
+      });
 
       if (isCorrect) {
+        console.log('[handleQuizSubmit] Marking as solved:', challengeId);
         markWeeklySolved(challengeId);
-        setTimeout(() => {
-          setSelectedQuestion((prev) => Math.min(prev + 1, totalCount));
+        console.log('[handleQuizSubmit] Scheduling next question in 1200ms');
+        const timer = setTimeout(() => {
+          try {
+            setSelectedQuestion((prev) => {
+              const next = Math.min(prev + 1, totalCount);
+              console.log('[handleQuizSubmit] Advancing question:', prev, '→', next);
+              return next;
+            });
+          } catch (err) {
+            console.error('[handleQuizSubmit] Error advancing question:', err);
+          }
         }, 1200);
+        return () => clearTimeout(timer);
       }
     } catch (error) {
-      console.error('[WeeklyChallenge] Quiz submit error:', error);
+      console.error('[handleQuizSubmit] Unexpected error:', error);
     }
   };
 
@@ -254,7 +379,7 @@ export default function WeeklyChallengeComponent() {
       {!isLoading && !error && weeklyChallenges.length > 0 && (
       <>
         {/* Completion splash temporarily disabled while debugging white screen */}
-        {false && showCompletionSplash && (
+        {showCompletionSplash ? (
           <WeeklyCompletionSplash
             weekNumber={currentWeek}
             nextWeekDate={getNextWeekDate()}
@@ -569,3 +694,13 @@ export default function WeeklyChallengeComponent() {
     </>
   );
 }
+
+// Export wrapped in error boundary
+export default function WeeklyChallengeComponent() {
+  return (
+    <ErrorBoundary>
+      <WeeklyChallengeContent />
+    </ErrorBoundary>
+  );
+}
+
