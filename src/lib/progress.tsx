@@ -71,8 +71,15 @@ export function ProgressProvider({ children, storage }: ProgressProviderProps) {
     const loadProgress = async () => {
       try {
         const loaded = await storageService.load();
-        if (loaded) {
+        if (loaded && loaded.weekly) {
           setState(loaded);
+          setPreviousBadges(new Set(loaded.badges));
+        } else if (loaded) {
+          // Ensure weekly state exists
+          setState({
+            ...loaded,
+            weekly: loaded.weekly || { weekNumber: 1, solvedIds: [] },
+          });
           setPreviousBadges(new Set(loaded.badges));
         }
       } catch (error) {
@@ -229,14 +236,14 @@ export function ProgressProvider({ children, storage }: ProgressProviderProps) {
       markWeeklySolved: (id) =>
         setState((s) => ({
           ...s,
-          weekly: { ...s.weekly, solvedIds: Array.from(new Set([...s.weekly.solvedIds, id])) },
+          weekly: s.weekly ? { ...s.weekly, solvedIds: Array.from(new Set([...s.weekly.solvedIds, id])) } : { weekNumber: 1, solvedIds: [id] },
         })),
       dispatch: (action: any) => {
         switch (action.type) {
           case 'MARK_WEEKLY_SOLVED':
             setState((s) => ({
               ...s,
-              weekly: { ...s.weekly, solvedIds: Array.from(new Set([...s.weekly.solvedIds, action.payload])) },
+              weekly: s.weekly ? { ...s.weekly, solvedIds: Array.from(new Set([...s.weekly.solvedIds, action.payload])) } : { weekNumber: 1, solvedIds: [action.payload] },
             }));
             break;
           case 'UPDATE_WEEKLY':
