@@ -285,7 +285,8 @@ export default function WeeklyChallengeComponent() {
       
       {!isLoading && !error && weeklyChallenges.length > 0 && (
       <>
-        {showCompletionSplash && (
+        {/* Completion splash temporarily disabled while debugging white screen */}
+        {false && showCompletionSplash && (
           <WeeklyCompletionSplash
             weekNumber={currentWeek}
             nextWeekDate={getNextWeekDate()}
