@@ -12,6 +12,7 @@ export { defaultProgress, type ProgressState } from '../types/progress';
 
 export type ProgressContextType = {
   state: ProgressState;
+  isLoaded: boolean;
   setState: React.Dispatch<React.SetStateAction<ProgressState>>;
   markCTFSolved: (id: string) => void;
   markPhishSolved: (id: string) => void;
@@ -165,6 +166,7 @@ export function ProgressProvider({ children, storage }: ProgressProviderProps) {
   const api = useMemo<ProgressContextType>(
     () => ({
       state,
+      isLoaded,
       setState,
       markCTFSolved: (id) =>
         setState((s) => ({

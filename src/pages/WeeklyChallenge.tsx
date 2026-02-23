@@ -51,7 +51,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 }
 
 function WeeklyChallengeContent() {
-  const { state, markWeeklySolved, dispatch } = useProgress();
+  const { state, isLoaded, markWeeklySolved, dispatch } = useProgress();
   const { user } = useAuth();
   const [weeklyChallenges, setWeeklyChallenges] = useState<WeeklyChallenge[]>([]);
   const [answers, setAnswers] = useState<Record<string, WeeklyChallengeAnswer>>({});
@@ -97,6 +97,12 @@ function WeeklyChallengeContent() {
 
   // Manage weekly state - ensure proper week initialization
   useEffect(() => {
+    // WAIT FOR STORAGE TO LOAD BEFORE DOING ANYTHING
+    if (!isLoaded) {
+      console.log('[WeeklyChallenge] Waiting for storage to load...');
+      return;
+    }
+    
     if (weeklyInitialized) return; // Only run once
     
     try {
@@ -110,8 +116,12 @@ function WeeklyChallengeContent() {
           payload: { weekNumber: currentWeek, solvedIds: [] },
         });
       } else if (state.weekly.weekNumber === 0) {
-        // UNINITIALIZED STATE - skip logic to allow storage to load
-        console.log('[WeeklyChallenge] Waiting for storage to load (weekNumber is 0)...');
+        // UNINITIALIZED STATE - should not happen after storage loads
+        console.log('[WeeklyChallenge] WARNING: weekNumber still 0 after storage loaded. Setting to current week.');
+        dispatch({
+          type: 'UPDATE_WEEKLY',
+          payload: { weekNumber: currentWeek, solvedIds: state.weekly.solvedIds || [] },
+        });
       } else if (state.weekly.solvedIds && state.weekly.solvedIds.length > 0) {
         // HAS SOLVED DATA - ALWAYS PRESERVE (never clear existing progress)
         console.log('[WeeklyChallenge] Found existing solved data, preserving:', state.weekly.solvedIds.length, 'challenges');
@@ -148,7 +158,7 @@ function WeeklyChallengeContent() {
       console.error('[WeeklyChallenge] Error initializing weekly state:', err);
       setWeeklyInitialized(true); // Mark as initialized even on error to avoid infinite loops
     }
-  }, [state?.weekly?.weekNumber, currentWeek, weeklyInitialized, dispatch]);
+  }, [isLoaded, weeklyInitialized, dispatch, currentWeek]);
 
   const handleCTFSubmit = (challengeId: string, userAnswer: string, correctAnswer: string) => {
     try {
