@@ -116,8 +116,6 @@ export default function WeeklyChallengeComponent() {
 
   const handleCTFSubmit = (challengeId: string, userAnswer: string, correctAnswer: string) => {
     try {
-      console.log('[WeeklyChallenge] CTF Submit:', { challengeId });
-      
       const userContent = userAnswer.replace(/^[Cc][Ss][Aa]\{|\}$/g, '').trim();
       const correctContent = correctAnswer.replace(/^[Cc][Ss][Aa]\{|\}$/g, '').trim();
       const isCorrect =
@@ -125,120 +123,90 @@ export default function WeeklyChallengeComponent() {
         userAnswer.toLowerCase() === correctContent.toLowerCase() ||
         userContent === correctContent;
 
-      console.log('[WeeklyChallenge] Setting feedback for', challengeId, ':', { isCorrect });
-      
-      // Always update feedback first
-      setFeedback((f) => {
-        const updated = {
-          ...f,
-          [challengeId]: {
-            isCorrect,
-            message: isCorrect ? '✓ Correct! Well done!' : '✗ Incorrect. Try again or view hint.',
-          },
-        };
-        console.log('[WeeklyChallenge] Updated feedback:', updated);
-        return updated;
-      });
+      // Update feedback
+      setFeedback((prev) => ({
+        ...prev,
+        [challengeId]: {
+          isCorrect,
+          message: isCorrect ? '✓ Correct! Well done!' : '✗ Incorrect. Try again or view hint.',
+        },
+      }));
 
-      // Mark solved if correct (but only if not already solved)
-      if (isCorrect && !state?.weekly?.solvedIds?.includes(challengeId)) {
-        console.log('[WeeklyChallenge] Correct answer, marking as solved:', challengeId);
+      // If correct, mark as solved and move to next
+      if (isCorrect) {
         markWeeklySolved(challengeId);
-        
-        // Move to next question after delay (don't sync to leaderboard to avoid white screen)
         setTimeout(() => {
-          console.log('[WeeklyChallenge] Moving to next question');
-          if (selectedQuestion < totalCount) {
-            setSelectedQuestion(selectedQuestion + 1);
-          }
+          setSelectedQuestion((prev) => Math.min(prev + 1, totalCount));
         }, 1200);
       }
     } catch (error) {
-      handleError(error, 'handleCTFSubmit');
+      console.error('[WeeklyChallenge] CTF submit error:', error);
     }
   };
 
   const handlePhishSubmit = (challengeId: string, userGuess: boolean, isPhish: boolean) => {
     try {
-      console.log('[WeeklyChallenge] Phish Submit:', { challengeId });
-      
       const isCorrect = userGuess === isPhish;
-      setFeedback((f) => ({
-        ...f,
+      setFeedback((prev) => ({
+        ...prev,
         [challengeId]: {
           isCorrect,
           message: isCorrect ? '✓ Correct! Good eye!' : `✗ Incorrect. This ${isPhish ? 'is' : 'is not'} a phishing email.`,
         },
       }));
 
-      if (isCorrect && !state?.weekly?.solvedIds?.includes(challengeId)) {
-        console.log('[WeeklyChallenge] Marking as solved:', challengeId);
+      if (isCorrect) {
         markWeeklySolved(challengeId);
-        
         setTimeout(() => {
-          if (selectedQuestion < totalCount) {
-            setSelectedQuestion(selectedQuestion + 1);
-          }
+          setSelectedQuestion((prev) => Math.min(prev + 1, totalCount));
         }, 1200);
       }
     } catch (error) {
-      handleError(error, 'handlePhishSubmit');
+      console.error('[WeeklyChallenge] Phish submit error:', error);
     }
   };
 
   const handleCodeSubmit = (challengeId: string, userAnswer: number, correctAnswer: number) => {
     try {
-      console.log('[WeeklyChallenge] Code Submit:', { challengeId });
-      
       const isCorrect = userAnswer === correctAnswer;
-      setFeedback((f) => ({
-        ...f,
+      setFeedback((prev) => ({
+        ...prev,
         [challengeId]: {
           isCorrect,
           message: isCorrect ? '✓ Correct! Great security knowledge!' : '✗ Incorrect. Review the explanation.',
         },
       }));
 
-      if (isCorrect && !state?.weekly?.solvedIds?.includes(challengeId)) {
-        console.log('[WeeklyChallenge] Marking as solved:', challengeId);
+      if (isCorrect) {
         markWeeklySolved(challengeId);
-        
         setTimeout(() => {
-          if (selectedQuestion < totalCount) {
-            setSelectedQuestion(selectedQuestion + 1);
-          }
+          setSelectedQuestion((prev) => Math.min(prev + 1, totalCount));
         }, 1200);
       }
     } catch (error) {
-      handleError(error, 'handleCodeSubmit');
+      console.error('[WeeklyChallenge] Code submit error:', error);
     }
   };
 
   const handleQuizSubmit = (challengeId: string, userAnswer: number, correctAnswer: number) => {
     try {
-      console.log('[WeeklyChallenge] Quiz Submit:', { challengeId });
-      
       const isCorrect = userAnswer === correctAnswer;
-      setFeedback((f) => ({
-        ...f,
+      setFeedback((prev) => ({
+        ...prev,
         [challengeId]: {
           isCorrect,
           message: isCorrect ? '✓ Correct! Well done!' : '✗ Incorrect. Study the explanation.',
         },
       }));
 
-      if (isCorrect && !state?.weekly?.solvedIds?.includes(challengeId)) {
-        console.log('[WeeklyChallenge] Marking as solved:', challengeId);
+      if (isCorrect) {
         markWeeklySolved(challengeId);
-        
         setTimeout(() => {
-          if (selectedQuestion < totalCount) {
-            setSelectedQuestion(selectedQuestion + 1);
-          }
+          setSelectedQuestion((prev) => Math.min(prev + 1, totalCount));
         }, 1200);
       }
     } catch (error) {
-      handleError(error, 'handleQuizSubmit');
+      console.error('[WeeklyChallenge] Quiz submit error:', error);
     }
   };
 
