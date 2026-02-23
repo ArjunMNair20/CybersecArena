@@ -44,6 +44,8 @@ export default function WeeklyChallengeComponent() {
   useEffect(() => {
     try {
       console.log('[WeeklyChallenge] Component mounted, setting challenges');
+      console.log('[WeeklyChallenge] Current state.weekly:', state?.weekly);
+      console.log('[WeeklyChallenge] solvedIds from state:', state?.weekly?.solvedIds);
       setWeeklyChallenges(challenges || []);
       setIsLoading(false);
     } catch (err) {
@@ -387,6 +389,9 @@ export default function WeeklyChallengeComponent() {
           {Array.from({ length: totalCount }, (_, i) => i + 1).map((num) => {
             const challenge = weeklyChallenges[num - 1];
             const isSolved = state && state.weekly ? state.weekly.solvedIds.includes(challenge?.id) : false;
+            if (num === 1) {
+              console.log('[WeeklyChallenge Nav] Challenge 1:', { id: challenge?.id, isSolved, state: state?.weekly });
+            }
             const typeColors: Record<string, string> = {
               ctf: 'bg-purple-600 text-purple-100',
               phish: 'bg-red-600 text-red-100',
