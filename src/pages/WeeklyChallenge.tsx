@@ -24,6 +24,13 @@ export default function WeeklyChallengeComponent() {
   const [error, setError] = useState<string | null>(null);
   const [weeklyInitialized, setWeeklyInitialized] = useState<boolean>(false);
 
+  // Wrap entire component logic in error handler
+  const handleError = (err: any, context: string) => {
+    console.error(`[WeeklyChallenge] Error in ${context}:`, err);
+    const message = err instanceof Error ? err.message : String(err);
+    setError(`Error: ${message}`);
+  };
+
   // Calculate week number based on user's signup date
   let currentWeek: number;
   let weekInfo: any;
@@ -118,39 +125,36 @@ export default function WeeklyChallengeComponent() {
         userAnswer.toLowerCase() === correctContent.toLowerCase() ||
         userContent === correctContent;
 
+      console.log('[WeeklyChallenge] Setting feedback for', challengeId, ':', { isCorrect });
+      
       // Always update feedback first
-      setFeedback((f) => ({
-        ...f,
-        [challengeId]: {
-          isCorrect,
-          message: isCorrect ? '✓ Correct! Well done!' : '✗ Incorrect. Try again or view hint.',
-        },
-      }));
+      setFeedback((f) => {
+        const updated = {
+          ...f,
+          [challengeId]: {
+            isCorrect,
+            message: isCorrect ? '✓ Correct! Well done!' : '✗ Incorrect. Try again or view hint.',
+          },
+        };
+        console.log('[WeeklyChallenge] Updated feedback:', updated);
+        return updated;
+      });
 
-      // Mark solved if correct
+      // Mark solved if correct (but only if not already solved)
       if (isCorrect && !state?.weekly?.solvedIds?.includes(challengeId)) {
-        console.log('[WeeklyChallenge] Marking as solved:', challengeId);
+        console.log('[WeeklyChallenge] Correct answer, marking as solved:', challengeId);
         markWeeklySolved(challengeId);
         
-        // Sync to leaderboard after a tiny delay
+        // Move to next question after delay (don't sync to leaderboard to avoid white screen)
         setTimeout(() => {
-          try {
-            syncToLeaderboard(user || null);
-          } catch (e) {
-            console.error('[WeeklyChallenge] Leaderboard sync error:', e);
-          }
-        }, 100);
-        
-        // Move to next question
-        setTimeout(() => {
+          console.log('[WeeklyChallenge] Moving to next question');
           if (selectedQuestion < totalCount) {
             setSelectedQuestion(selectedQuestion + 1);
           }
-        }, 1000);
+        }, 1200);
       }
     } catch (error) {
-      console.error('[WeeklyChallenge] Error in handleCTFSubmit:', error);
-      setError('Error submitting answer. Please refresh and try again.');
+      handleError(error, 'handleCTFSubmit');
     }
   };
 
@@ -172,22 +176,13 @@ export default function WeeklyChallengeComponent() {
         markWeeklySolved(challengeId);
         
         setTimeout(() => {
-          try {
-            syncToLeaderboard(user || null);
-          } catch (e) {
-            console.error('[WeeklyChallenge] Leaderboard sync error:', e);
-          }
-        }, 100);
-        
-        setTimeout(() => {
           if (selectedQuestion < totalCount) {
             setSelectedQuestion(selectedQuestion + 1);
           }
-        }, 1000);
+        }, 1200);
       }
     } catch (error) {
-      console.error('[WeeklyChallenge] Error in handlePhishSubmit:', error);
-      setError('Error submitting answer. Please refresh and try again.');
+      handleError(error, 'handlePhishSubmit');
     }
   };
 
@@ -209,22 +204,13 @@ export default function WeeklyChallengeComponent() {
         markWeeklySolved(challengeId);
         
         setTimeout(() => {
-          try {
-            syncToLeaderboard(user || null);
-          } catch (e) {
-            console.error('[WeeklyChallenge] Leaderboard sync error:', e);
-          }
-        }, 100);
-        
-        setTimeout(() => {
           if (selectedQuestion < totalCount) {
             setSelectedQuestion(selectedQuestion + 1);
           }
-        }, 1000);
+        }, 1200);
       }
     } catch (error) {
-      console.error('[WeeklyChallenge] Error in handleCodeSubmit:', error);
-      setError('Error submitting answer. Please refresh and try again.');
+      handleError(error, 'handleCodeSubmit');
     }
   };
 
@@ -246,22 +232,13 @@ export default function WeeklyChallengeComponent() {
         markWeeklySolved(challengeId);
         
         setTimeout(() => {
-          try {
-            syncToLeaderboard(user || null);
-          } catch (e) {
-            console.error('[WeeklyChallenge] Leaderboard sync error:', e);
-          }
-        }, 100);
-        
-        setTimeout(() => {
           if (selectedQuestion < totalCount) {
             setSelectedQuestion(selectedQuestion + 1);
           }
-        }, 1000);
+        }, 1200);
       }
     } catch (error) {
-      console.error('[WeeklyChallenge] Error in handleQuizSubmit:', error);
-      setError('Error submitting answer. Please refresh and try again.');
+      handleError(error, 'handleQuizSubmit');
     }
   };
 
@@ -412,7 +389,7 @@ export default function WeeklyChallengeComponent() {
       </div>
 
       {/* Current Question Display */}
-      {currentChallenge && (
+      {currentChallenge ? (
         <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-lg p-6">
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
