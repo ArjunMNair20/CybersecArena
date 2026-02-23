@@ -105,7 +105,7 @@ export default function WeeklyChallengeComponent() {
     }
   }, [state?.weekly?.weekNumber, currentWeek, weeklyInitialized, dispatch]);
 
-  // Restore feedback from solvedIds when page loads
+  // Restore feedback from solvedIds when page loads or when solvedIds change
   useEffect(() => {
     if (!state?.weekly?.solvedIds || state.weekly.solvedIds.length === 0) return;
     
@@ -128,7 +128,7 @@ export default function WeeklyChallengeComponent() {
       
       return changesMade ? updatedFeedback : prevFeedback;
     });
-  }, [state?.weekly?.weekNumber]); // Only dependency is week number
+  }, [state?.weekly?.solvedIds?.length]); // Depend on array length to trigger when new items added
 
   const handleCTFSubmit = (challengeId: string, userAnswer: string, correctAnswer: string) => {
     console.log('[WeeklyChallenge] CTF Submit:', { challengeId, weekNumber: currentWeek, stateWeekNumber: state?.weekly?.weekNumber });
