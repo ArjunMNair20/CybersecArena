@@ -292,6 +292,7 @@ export default function WeeklyChallengeComponent() {
     nextMonday.setDate(today.getDate() + daysUntilMonday);
     return nextMonday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
+  console.log('[WeeklyChallenge] render:', { isLoading, error, currentWeek, weeklyChallengesCount: weeklyChallenges.length, currentChallenge: currentChallenge?.id });
 
   return (
     <>
@@ -312,7 +313,7 @@ export default function WeeklyChallengeComponent() {
         </div>
       )}
       
-      {!isLoading && !error && (
+      {!isLoading && !error && weeklyChallenges.length > 0 && (
       <>
         {showCompletionSplash && (
           <WeeklyCompletionSplash
@@ -615,6 +616,13 @@ export default function WeeklyChallengeComponent() {
       )}
         </div>
         </>
+      )}
+
+      {!isLoading && !error && weeklyChallenges.length === 0 && (
+        <div className="p-6 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+          <h2 className="text-lg font-bold text-yellow-400 mb-2">No Challenges Available</h2>
+          <p className="text-yellow-300 text-sm">Weekly challenges failed to load. Please refresh the page.</p>
+        </div>
       )}
     </>
   );
