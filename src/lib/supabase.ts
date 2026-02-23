@@ -34,6 +34,7 @@ export async function getSupabase() {
   })();
 
   return _clientPromise;
+}
 
 // Synchronous fallback for code paths that need a check but can't await
 export function getSupabaseSync() {
