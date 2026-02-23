@@ -122,35 +122,6 @@ export default function WeeklyChallengeComponent() {
     return null;
   };
 
-  // Populate feedback for already-solved challenges on mount/state change
-  useEffect(() => {
-    if (!state?.weekly?.solvedIds || state.weekly.solvedIds.length === 0) return;
-    
-    try {
-      const newFeedback: Record<string, { isCorrect: boolean; message: string }> = {};
-      let feedbackAdded = false;
-      
-      state.weekly.solvedIds.forEach((solvedId) => {
-        // Only add feedback if not already present (don't override user's current submission)
-        if (!feedback[solvedId]) {
-          newFeedback[solvedId] = {
-            isCorrect: true,
-            message: '✓ Completed! Great job!',
-          };
-          feedbackAdded = true;
-        }
-      });
-
-      // Only update if there are new feedback items to add
-      if (feedbackAdded) {
-        console.log('[WeeklyChallenge] Restoring feedback for solved challenges:', Object.keys(newFeedback));
-        setFeedback((f) => ({ ...f, ...newFeedback }));
-      }
-    } catch (err) {
-      console.error('[WeeklyChallenge] Error populating feedback:', err);
-    }
-  }, [state?.weekly?.solvedIds, feedback]);
-
   const handleCTFSubmit = (challengeId: string, userAnswer: string, correctAnswer: string) => {
     console.log('[WeeklyChallenge] CTF Submit:', { challengeId, weekNumber: currentWeek, stateWeekNumber: state?.weekly?.weekNumber });
     
