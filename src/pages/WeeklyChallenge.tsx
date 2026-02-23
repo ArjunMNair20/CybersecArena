@@ -105,38 +105,6 @@ export default function WeeklyChallengeComponent() {
     }
   }, [state?.weekly?.weekNumber, currentWeek, weeklyInitialized, dispatch]);
 
-  // Populate feedback for already-solved challenges on mount/state change
-  useEffect(() => {
-    if (!state?.weekly?.solvedIds || state.weekly.solvedIds.length === 0) return;
-    
-    try {
-      setFeedback((currentFeedback) => {
-        const newFeedback = { ...currentFeedback };
-        let feedbackAdded = false;
-        
-        state.weekly.solvedIds.forEach((solvedId) => {
-          // Only add feedback if not already present (don't override user's current submission)
-          if (!newFeedback[solvedId]) {
-            newFeedback[solvedId] = {
-              isCorrect: true,
-              message: '✓ Completed! Great job!',
-            };
-            feedbackAdded = true;
-          }
-        });
-
-        // Only return updated state if feedback was added
-        if (feedbackAdded) {
-          console.log('[WeeklyChallenge] Restoring feedback for solved challenges');
-        }
-        
-        return newFeedback;
-      });
-    } catch (err) {
-      console.error('[WeeklyChallenge] Error populating feedback:', err);
-    }
-  }, [state?.weekly?.solvedIds]);
-
   const handleCTFSubmit = (challengeId: string, userAnswer: string, correctAnswer: string) => {
     console.log('[WeeklyChallenge] CTF Submit:', { challengeId, weekNumber: currentWeek, stateWeekNumber: state?.weekly?.weekNumber });
     
@@ -618,31 +586,47 @@ export default function WeeklyChallengeComponent() {
             )}
           </div>
 
-          {/* Feedback */}
-          {feedback[currentChallenge.id] && (
-            <div
-              className={`p-4 rounded-lg border ${
-                feedback[currentChallenge.id].isCorrect
-                  ? 'bg-green-500/10 border-green-400/50 text-green-300'
-                  : 'bg-red-500/10 border-red-400/50 text-red-300'
-              }`}
-            >
-              {feedback[currentChallenge.id].message}
-            </div>
-          )}
+          {/* Feedback - Show if user just submitted OR if challenge was already solved */}
+          {(() => {
+            const hasFeedback = feedback[currentChallenge.id];
+            const isSolved = state?.weekly?.solvedIds?.includes(currentChallenge.id);
+            
+            if (!hasFeedback && !isSolved) return null;
+            
+            const feedbackData = hasFeedback || { isCorrect: true, message: '✓ Completed! Great job!' };
+            
+            return (
+              <div
+                className={`p-4 rounded-lg border ${
+                  feedbackData.isCorrect
+                    ? 'bg-green-500/10 border-green-400/50 text-green-300'
+                    : 'bg-red-500/10 border-red-400/50 text-red-300'
+                }`}
+              >
+                {feedbackData.message}
+              </div>
+            );
+          })()}
 
-          {/* Explanation */}
-          {feedback[currentChallenge.id] && (
-            <div className="mt-4 p-4 bg-slate-800/50 border border-slate-700 rounded">
-              <p className="text-slate-300 text-sm">
-                {currentChallenge.type === 'code' && (currentChallenge.data as any).explanation ||
-                 currentChallenge.type === 'quiz' && (currentChallenge.data as any).explain ||
-                 currentChallenge.type === 'ctf' && 'Check the hint or try another format.' ||
-                 currentChallenge.type === 'phish' && (currentChallenge.data as any).hint ||
-                 'See the question details for more information.'}
-              </p>
-            </div>
-          )}
+          {/* Explanation - Show if user just submitted OR if challenge was already solved */}
+          {(() => {
+            const hasFeedback = feedback[currentChallenge.id];
+            const isSolved = state?.weekly?.solvedIds?.includes(currentChallenge.id);
+            
+            if (!hasFeedback && !isSolved) return null;
+            
+            return (
+              <div className="mt-4 p-4 bg-slate-800/50 border border-slate-700 rounded">
+                <p className="text-slate-300 text-sm">
+                  {currentChallenge.type === 'code' && (currentChallenge.data as any).explanation ||
+                   currentChallenge.type === 'quiz' && (currentChallenge.data as any).explain ||
+                   currentChallenge.type === 'ctf' && 'Check the hint or try another format.' ||
+                   currentChallenge.type === 'phish' && (currentChallenge.data as any).hint ||
+                   'See the question details for more information.'}
+                </p>
+              </div>
+            );
+          })()}
         </div>
       )}
         </div>
