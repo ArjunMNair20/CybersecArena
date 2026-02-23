@@ -182,7 +182,7 @@ function WeeklyChallengeContent() {
         console.log('[handleCTFSubmit] Marking as solved:', challengeId);
         markWeeklySolved(challengeId);
         console.log('[handleCTFSubmit] Scheduling next question in 1200ms');
-        const timer = setTimeout(() => {
+        setTimeout(() => {
           try {
             setSelectedQuestion((prev) => {
               const next = Math.min(prev + 1, totalCount);
@@ -193,7 +193,6 @@ function WeeklyChallengeContent() {
             console.error('[handleCTFSubmit] Error advancing question:', err);
           }
         }, 1200);
-        return () => clearTimeout(timer);
       }
     } catch (error) {
       console.error('[handleCTFSubmit] Unexpected error:', error);
@@ -227,7 +226,7 @@ function WeeklyChallengeContent() {
         console.log('[handlePhishSubmit] Marking as solved:', challengeId);
         markWeeklySolved(challengeId);
         console.log('[handlePhishSubmit] Scheduling next question in 1200ms');
-        const timer = setTimeout(() => {
+        setTimeout(() => {
           try {
             setSelectedQuestion((prev) => {
               const next = Math.min(prev + 1, totalCount);
@@ -238,7 +237,6 @@ function WeeklyChallengeContent() {
             console.error('[handlePhishSubmit] Error advancing question:', err);
           }
         }, 1200);
-        return () => clearTimeout(timer);
       }
     } catch (error) {
       console.error('[handlePhishSubmit] Unexpected error:', error);
@@ -272,7 +270,7 @@ function WeeklyChallengeContent() {
         console.log('[handleCodeSubmit] Marking as solved:', challengeId);
         markWeeklySolved(challengeId);
         console.log('[handleCodeSubmit] Scheduling next question in 1200ms');
-        const timer = setTimeout(() => {
+        setTimeout(() => {
           try {
             setSelectedQuestion((prev) => {
               const next = Math.min(prev + 1, totalCount);
@@ -283,7 +281,6 @@ function WeeklyChallengeContent() {
             console.error('[handleCodeSubmit] Error advancing question:', err);
           }
         }, 1200);
-        return () => clearTimeout(timer);
       }
     } catch (error) {
       console.error('[handleCodeSubmit] Unexpected error:', error);
@@ -317,7 +314,7 @@ function WeeklyChallengeContent() {
         console.log('[handleQuizSubmit] Marking as solved:', challengeId);
         markWeeklySolved(challengeId);
         console.log('[handleQuizSubmit] Scheduling next question in 1200ms');
-        const timer = setTimeout(() => {
+        setTimeout(() => {
           try {
             setSelectedQuestion((prev) => {
               const next = Math.min(prev + 1, totalCount);
@@ -328,7 +325,6 @@ function WeeklyChallengeContent() {
             console.error('[handleQuizSubmit] Error advancing question:', err);
           }
         }, 1200);
-        return () => clearTimeout(timer);
       }
     } catch (error) {
       console.error('[handleQuizSubmit] Unexpected error:', error);
