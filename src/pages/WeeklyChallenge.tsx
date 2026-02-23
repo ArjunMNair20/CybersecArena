@@ -67,20 +67,8 @@ export default function WeeklyChallengeComponent() {
           type: 'UPDATE_WEEKLY',
           payload: { weekNumber: currentWeek, solvedIds: [] },
         });
-      } else if (state.weekly.solvedIds && state.weekly.solvedIds.length > 0) {
-        // HAS SOLVED DATA - ALWAYS PRESERVE (never clear existing progress)
-        console.log('[WeeklyChallenge] Found existing solved data, preserving:', state.weekly.solvedIds.length, 'challenges');
-        
-        // Update week number if needed, but preserve solvedIds
-        if (state.weekly.weekNumber !== currentWeek) {
-          console.log('[WeeklyChallenge] Updating week number while preserving solved challenges:', state.weekly.weekNumber, '→', currentWeek);
-          dispatch({
-            type: 'UPDATE_WEEKLY',
-            payload: { weekNumber: currentWeek, solvedIds: state.weekly.solvedIds },
-          });
-        }
       } else if (state.weekly.weekNumber < currentWeek) {
-        // NEW WEEK - Reset only if there's no existing solved data
+        // NEW WEEK DETECTED - Reset progress
         console.log('[WeeklyChallenge] New week detected! Resetting progress.', state.weekly.weekNumber, '→', currentWeek);
         dispatch({
           type: 'UPDATE_WEEKLY',
@@ -105,22 +93,37 @@ export default function WeeklyChallengeComponent() {
     }
   }, [state?.weekly?.weekNumber, currentWeek, weeklyInitialized, dispatch]);
 
-  // Helper function to check if feedback should show for a challenge
-  const getFeedbackForChallenge = (challengeId: string): { isCorrect: boolean; message: string } | null => {
-    // Show feedback if it's in the feedback record OR if it's in solvedIds (already completed)
-    if (feedback[challengeId]) {
-      return feedback[challengeId];
-    }
+  // Populate feedback for already-solved challenges on mount/state change
+  useEffect(() => {
+    if (!state?.weekly?.solvedIds || state.weekly.solvedIds.length === 0) return;
     
-    if (state?.weekly?.solvedIds?.includes(challengeId)) {
-      return {
-        isCorrect: true,
-        message: '✓ Completed! Great job!',
-      };
+    try {
+      setFeedback((currentFeedback) => {
+        const newFeedback = { ...currentFeedback };
+        let feedbackAdded = false;
+        
+        state.weekly.solvedIds.forEach((solvedId) => {
+          // Only add feedback if not already present (don't override user's current submission)
+          if (!newFeedback[solvedId]) {
+            newFeedback[solvedId] = {
+              isCorrect: true,
+              message: '✓ Completed! Great job!',
+            };
+            feedbackAdded = true;
+          }
+        });
+
+        // Only return updated state if feedback was added
+        if (feedbackAdded) {
+          console.log('[WeeklyChallenge] Restoring feedback for solved challenges');
+        }
+        
+        return newFeedback;
+      });
+    } catch (err) {
+      console.error('[WeeklyChallenge] Error populating feedback:', err);
     }
-    
-    return null;
-  };
+  }, [state?.weekly?.solvedIds]);
 
   const handleCTFSubmit = (challengeId: string, userAnswer: string, correctAnswer: string) => {
     console.log('[WeeklyChallenge] CTF Submit:', { challengeId, weekNumber: currentWeek, stateWeekNumber: state?.weekly?.weekNumber });
@@ -604,36 +607,30 @@ export default function WeeklyChallengeComponent() {
           </div>
 
           {/* Feedback */}
-          {(() => {
-            const feedbackItem = getFeedbackForChallenge(currentChallenge.id);
-            return feedbackItem ? (
-              <div
-                className={`p-4 rounded-lg border ${
-                  feedbackItem.isCorrect
-                    ? 'bg-green-500/10 border-green-400/50 text-green-300'
-                    : 'bg-red-500/10 border-red-400/50 text-red-300'
-                }`}
-              >
-                {feedbackItem.message}
-              </div>
-            ) : null;
-          })()}
+          {feedback[currentChallenge.id] && (
+            <div
+              className={`p-4 rounded-lg border ${
+                feedback[currentChallenge.id].isCorrect
+                  ? 'bg-green-500/10 border-green-400/50 text-green-300'
+                  : 'bg-red-500/10 border-red-400/50 text-red-300'
+              }`}
+            >
+              {feedback[currentChallenge.id].message}
+            </div>
+          )}
 
           {/* Explanation */}
-          {(() => {
-            const feedbackItem = getFeedbackForChallenge(currentChallenge.id);
-            return feedbackItem ? (
-              <div className="mt-4 p-4 bg-slate-800/50 border border-slate-700 rounded">
-                <p className="text-slate-300 text-sm">
-                  {currentChallenge.type === 'code' && (currentChallenge.data as any).explanation ||
-                   currentChallenge.type === 'quiz' && (currentChallenge.data as any).explain ||
-                   currentChallenge.type === 'ctf' && 'Check the hint or try another format.' ||
-                   currentChallenge.type === 'phish' && (currentChallenge.data as any).hint ||
-                   'See the question details for more information.'}
-                </p>
-              </div>
-            ) : null;
-          })()}
+          {feedback[currentChallenge.id] && (
+            <div className="mt-4 p-4 bg-slate-800/50 border border-slate-700 rounded">
+              <p className="text-slate-300 text-sm">
+                {currentChallenge.type === 'code' && (currentChallenge.data as any).explanation ||
+                 currentChallenge.type === 'quiz' && (currentChallenge.data as any).explain ||
+                 currentChallenge.type === 'ctf' && 'Check the hint or try another format.' ||
+                 currentChallenge.type === 'phish' && (currentChallenge.data as any).hint ||
+                 'See the question details for more information.'}
+              </p>
+            </div>
+          )}
         </div>
       )}
         </div>
