@@ -291,14 +291,17 @@ export function useSyncProgressToLeaderboard() {
       const MAX_CODE = 50;
       const MAX_QUIZ = 79;
       const MAX_FIREWALL = 100;
+      const MAX_WEEKLY = 20;
 
       const ctfPercent = Math.min(100, (state.ctf.solvedIds.length / MAX_CTF) * 100);
       const phishPercent = Math.min(100, (state.phish.solvedIds.length / MAX_PHISH) * 100);
       const codePercent = Math.min(100, (state.code.solvedIds.length / MAX_CODE) * 100);
       const quizPercent = Math.min(100, (state.quiz.correct / MAX_QUIZ) * 100);
       const firewallPercent = Math.min(100, (state.firewall.bestScore / MAX_FIREWALL) * 100);
+      const weeklyPercent = Math.min(100, (state.weekly.solvedIds.length / MAX_WEEKLY) * 100);
       
-      const overallPercent = (ctfPercent + phishPercent + codePercent + quizPercent + firewallPercent) / 5;
+      // Include weekly in overall calculation
+      const overallPercent = (ctfPercent + phishPercent + codePercent + quizPercent + firewallPercent + weeklyPercent) / 6;
       
       const userScores = {
         total: Math.round(overallPercent * 10),
@@ -307,6 +310,7 @@ export function useSyncProgressToLeaderboard() {
         code: Math.round(codePercent * 10),
         quiz: Math.round(quizPercent * 10),
         firewall: Math.round(firewallPercent * 10),
+        weekly: Math.round(weeklyPercent * 10),
       };
 
       const progressPayload = {
@@ -316,10 +320,12 @@ export function useSyncProgressToLeaderboard() {
         quiz_answered: state.quiz.answered,
         quiz_correct: state.quiz.correct,
         firewall_best_score: state.firewall.bestScore,
+        weekly_solved_count: state.weekly.solvedIds.length,
+        weekly_week_number: state.weekly.weekNumber,
         badges: state.badges,
       };
 
-      console.log('[useSyncProgressToLeaderboard] Syncing progress for user:', user.username, 'scores:', userScores);
+      console.log('[useSyncProgressToLeaderboard] Syncing progress for user:', user.username, 'scores:', userScores, 'weekly:', state.weekly);
       await leaderboardService.syncUserScore(user.id, user.username, userScores, progressPayload);
       console.log('[useSyncProgressToLeaderboard] Progress synced successfully');
     } catch (err) {
