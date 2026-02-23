@@ -105,31 +105,6 @@ export default function WeeklyChallengeComponent() {
     }
   }, [state?.weekly?.weekNumber, currentWeek, weeklyInitialized, dispatch]);
 
-  // Restore feedback from solvedIds when page loads or when solvedIds change
-  useEffect(() => {
-    if (!state?.weekly?.solvedIds || state.weekly.solvedIds.length === 0) return;
-    
-    console.log('[WeeklyChallenge] Restoring feedback for', state.weekly.solvedIds.length, 'completed challenges');
-    
-    setFeedback((prevFeedback) => {
-      const updatedFeedback = { ...prevFeedback };
-      let changesMade = false;
-      
-      state.weekly.solvedIds.forEach((solvedId) => {
-        // Only add feedback if not already present
-        if (!updatedFeedback[solvedId]) {
-          updatedFeedback[solvedId] = {
-            isCorrect: true,
-            message: '✓ Completed! Great job!',
-          };
-          changesMade = true;
-        }
-      });
-      
-      return changesMade ? updatedFeedback : prevFeedback;
-    });
-  }, [state?.weekly?.solvedIds?.length]); // Depend on array length to trigger when new items added
-
   const handleCTFSubmit = (challengeId: string, userAnswer: string, correctAnswer: string) => {
     console.log('[WeeklyChallenge] CTF Submit:', { challengeId, weekNumber: currentWeek, stateWeekNumber: state?.weekly?.weekNumber });
     
@@ -612,21 +587,21 @@ export default function WeeklyChallengeComponent() {
             )}
           </div>
 
-          {/* Feedback - Only show if user just submitted */}
-          {feedback[currentChallenge.id] && (
+          {/* Feedback - Show if user submitted OR if challenge is in solvedIds */}
+          {(feedback[currentChallenge.id] || state?.weekly?.solvedIds?.includes(currentChallenge.id)) && (
             <div
               className={`p-4 rounded-lg border mt-4 ${
-                feedback[currentChallenge.id].isCorrect
+                (feedback[currentChallenge.id]?.isCorrect ?? true)
                   ? 'bg-green-500/10 border-green-400/50 text-green-300'
                   : 'bg-red-500/10 border-red-400/50 text-red-300'
               }`}
             >
-              {feedback[currentChallenge.id].message}
+              {feedback[currentChallenge.id]?.message ?? '✓ Completed! Great job!'}
             </div>
           )}
 
-          {/* Explanation - Only show if user just submitted */}
-          {feedback[currentChallenge.id] && (
+          {/* Explanation - Show if user submitted OR if challenge is in solvedIds */}
+          {(feedback[currentChallenge.id] || state?.weekly?.solvedIds?.includes(currentChallenge.id)) && (
             <div className="mt-4 p-4 bg-slate-800/50 border border-slate-700 rounded">
               <p className="text-slate-300 text-sm">
                 {currentChallenge.type === 'code' && (currentChallenge.data as any).explanation ||
