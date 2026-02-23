@@ -1,3 +1,6 @@
+import { processQuizQuestions } from '../utils/shuffleOptions';
+import { normalizeQuizChoices } from '../utils/normalizeOptionLengths';
+
 export type QuizQuestion = {
   id: string;
   topic: string;
@@ -1315,8 +1318,12 @@ export const STRUCTURED_QUIZZES: QuizLevel[] = [
 ];
 
 // For backward compatibility with old quiz system
-export const QUIZ_QUESTIONS: QuizQuestion[] = [
+const QUIZ_QUESTIONS_BASE: QuizQuestion[] = [
   ...BEGINNER_BASIC, ...BEGINNER_AUTH, ...BEGINNER_ENCRYPT, ...BEGINNER_NETWORK, ...BEGINNER_APP, ...BEGINNER_INCIDENT,
   ...INTERMEDIATE_BASIC, ...INTERMEDIATE_AUTH, ...INTERMEDIATE_ENCRYPT, ...INTERMEDIATE_NETWORK, ...INTERMEDIATE_APP, ...INTERMEDIATE_INCIDENT,
   ...EXPERT_BASIC, ...EXPERT_AUTH, ...EXPERT_ENCRYPT, ...EXPERT_NETWORK, ...EXPERT_APP, ...EXPERT_INCIDENT,
 ];
+
+// Shuffle all choices to randomize answer positions
+// Then normalize lengths to prevent prediction based on text size
+export const QUIZ_QUESTIONS = normalizeQuizChoices(processQuizQuestions(QUIZ_QUESTIONS_BASE));

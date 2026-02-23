@@ -67,6 +67,77 @@ class AuthService {
   }
 
   // -------------------- Public API --------------------
+  // Helper to retry with exponential backoff (for Supabase-style {data, error} responses)
+  private async retryWithBackoff<T extends { data: any; error: any }>(
+    fn: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 1000
+  ): Promise<T> {
+    let lastResult: T | null = null;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const result = await fn();
+        lastResult = result;
+        
+        // Check if there's an error in the response
+        if (result?.error) {
+          const errorMsg = result.error?.message || JSON.stringify(result.error);
+          const errorStatus = result.error?.status || result.error?.code || '';
+          
+          // Check if it's a rate limit error (multiple detection methods)
+          const isRateLimit = 
+            errorMsg?.includes('rate limit') ||
+            errorMsg?.includes('too many') ||
+            errorMsg?.includes('Too many requests') ||
+            errorMsg?.includes('Email sending') ||
+            errorMsg?.includes('email_rate_limit') ||
+            errorMsg?.includes('429') ||
+            errorMsg?.includes('rate_limited') ||
+            errorStatus === 429 ||
+            errorStatus === 'rate_limited' ||
+            errorStatus === 'email_rate_limit';
+          
+          if (isRateLimit) {
+            if (attempt < maxRetries - 1) {
+              // Exponential backoff: 1s, 2s, 4s, etc.
+              const delay = baseDelay * Math.pow(2, attempt);
+              console.warn(`⏳ Rate limited detected. Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
+              console.warn(`   Error: ${errorMsg}`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue;
+            } else {
+              console.warn(`❌ Rate limit still active after ${maxRetries} retries`);
+            }
+          }
+          
+          // For non-rate-limit errors, return (error will be handled by caller)
+          return result;
+        }
+        
+        // Success - no error
+        return result;
+      } catch (error: any) {
+        // Handle thrown exceptions (network errors, etc.)
+        const errorMsg = error?.message || String(error);
+        console.error('Network/execution error:', errorMsg);
+        
+        if (attempt < maxRetries - 1) {
+          const delay = baseDelay * Math.pow(2, attempt);
+          console.warn(`⏳ Request failed. Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        // Re-throw if all retries exhausted
+        throw error;
+      }
+    }
+    
+    // Return last result even if it has an error (after all retries)
+    return lastResult || { data: null, error: { message: 'All retries exhausted' } } as T;
+  }
+
   async signup(credentials: SignupCredentials): Promise<{ user: User; needsConfirmation: boolean }> {
     this.validateSignupBasics(credentials);
 
@@ -93,21 +164,62 @@ class AuthService {
       throw new Error('Username already taken');
     }
 
-    // Sign up with Supabase Auth (this will send confirmation email)
-    const { data: authData, error: authError } = await s.auth.signUp({
-      email,
-      password: credentials.password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/confirm-email`,
-        data: {
-          username,
-          name: name || '',
+    // Sign up with Supabase Auth with retry logic for rate limiting
+    // Using 5 retries (1s, 2s, 4s, 8s, 16s) for maximum resilience
+    const result = await this.retryWithBackoff(
+      () => s.auth.signUp({
+        email,
+        password: credentials.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/confirm-email`,
+          data: {
+            username,
+            name: name || '',
+          },
         },
-      },
-    });
+      }),
+      5, // 5 retries instead of 3 for better success rate
+      1000 // 1 second base delay
+    );
+
+    const { data: authData, error: authError } = result;
 
     if (authError) {
-      if (authError.message.includes('already registered')) {
+      const isRateLimit = 
+        authError.message?.includes('rate limit') ||
+        authError.message?.includes('too many') ||
+        authError.message?.includes('429') ||
+        authError.message?.includes('Email sending');
+      
+      if (isRateLimit) {
+        console.error('Email rate limit persisted after retries:', authError.message);
+        
+        // Check if user might have been created despite email failure
+        console.log('Checking if user account was created in database...');
+        try {
+          const userExists = await this.checkEmailExists(email);
+          if (userExists) {
+            console.log('✅ Account WAS created despite email rate limit!');
+            // Account exists - allow them to proceed
+            return {
+              user: {
+                id: '',
+                email,
+                username: username.toLowerCase(),
+                name: name || null,
+              },
+              needsConfirmation: true,
+            };
+          }
+        } catch (checkError) {
+          console.warn('Could not verify if user exists:', checkError);
+        }
+        
+        // If account doesn't exist or couldn't verify, throw helpful error
+        throw new Error('Email service is temporarily busy. Please wait 2-3 minutes and try again, or check if your account was created by trying to login.');
+      }
+      
+      if (authError.message && authError.message.includes('already registered')) {
         throw new Error('Email already registered');
       }
       throw new Error(authError.message || 'Failed to create account');
@@ -312,15 +424,30 @@ class AuthService {
     const s = await this.ensureSupabase();
     const normalizedEmail = this.normalizeEmail(email);
 
-    const { error } = await s.auth.resend({
-      type: 'signup',
-      email: normalizedEmail,
-      options: {
-        emailRedirectTo: `${window.location.origin}/confirm-email`,
-      },
-    });
+    // Use 5 retries with exponential backoff for resend
+    const result = await this.retryWithBackoff(
+      () => s.auth.resend({
+        type: 'signup',
+        email: normalizedEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/confirm-email`,
+        },
+      }),
+      5, // 5 retries
+      1000 // 1 second base delay
+    );
+
+    const { error } = result;
 
     if (error) {
+      // Check if it's a rate limit error
+      if (
+        error.message?.includes('rate limit') ||
+        error.message?.includes('too many') ||
+        error.message?.includes('429')
+      ) {
+        throw new Error('Email service is temporarily busy. Please wait a few minutes and try again.');
+      }
       throw new Error(error.message || 'Failed to resend confirmation email');
     }
   }

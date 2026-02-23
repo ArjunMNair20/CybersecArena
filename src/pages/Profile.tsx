@@ -273,7 +273,7 @@ export default function Profile() {
     const ctfCount = state.ctf.solvedIds.length;
     const phishCount = state.phish.solvedIds.length;
     const codeCount = state.code.solvedIds.length;
-    const quizStats = `${state.quiz.correct}/${state.quiz.answered}`;
+    const quizCompleted = state.quiz.answered;
     const badgeCount = state.badges.length;
 
     // Safely prepare display name for HTML
@@ -465,8 +465,8 @@ export default function Profile() {
               </div>
               <div class="stat-box">
                 <div class="stat-label">Cyber Quiz</div>
-                <div class="stat-value">${quizStats}</div>
-                <div class="stat-description">Correct answers / Total</div>
+                <div class="stat-value">${quizCompleted}</div>
+                <div class="stat-description">Quizzes completed</div>
               </div>
             </div>
           </div>

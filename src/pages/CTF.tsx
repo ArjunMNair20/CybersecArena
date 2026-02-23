@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { useProgress, useSyncProgressToLeaderboard } from '../lib/progress';
 import { useAuth } from '../contexts/AuthContext';
 import { CTF_TASKS, CTF_SERIES, CTFSeries } from '../data/ctf';
-import { Flag, Lightbulb, CheckCircle, XCircle, Filter, Trophy, Lock, Unlock, BookOpen, ArrowRight } from 'lucide-react';
+import { Flag, Lightbulb, CheckCircle, XCircle, Filter, Trophy, Lock, Unlock, BookOpen, ArrowRight, Download } from 'lucide-react';
 import settingsService from '../services/settingsService';
 import { AppSettings } from '../types/profile';
 
@@ -339,6 +339,18 @@ export default function CTF() {
                                 <p className="text-sm text-slate-300">{t.prompt}</p>
                               </div>
                             </div>
+
+                            {/* Download File Button for Series */}
+                            {t.file && (
+                              <a 
+                                href={`/files/${t.file}`} 
+                                download
+                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-400/30 hover:bg-blue-500/30 transition-colors text-xs font-medium"
+                              >
+                                <Download size={12} />
+                                Download {t.file}
+                              </a>
+                            )}
                             
                             {!unlocked && (
                               <div className="text-xs text-slate-500 bg-slate-800/50 p-2 rounded border border-slate-700">
@@ -520,6 +532,18 @@ export default function CTF() {
                   <div className="mt-3">
                     <img src={t.image} alt={t.title} className="w-full rounded-lg border border-slate-700" />
                   </div>
+                )}
+
+                {/* Download File Button */}
+                {t.file && (
+                  <a 
+                    href={`/files/${t.file}`} 
+                    download
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-400/30 hover:bg-blue-500/30 transition-colors text-sm font-medium"
+                  >
+                    <Download size={14} />
+                    Download {t.file}
+                  </a>
                 )}
                 
                 {/* Hints Section */}

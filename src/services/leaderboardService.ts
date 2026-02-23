@@ -69,19 +69,11 @@ class LeaderboardService {
           user_id, 
           username, 
           total_score, 
-          ctf_score, 
-          phish_score, 
-          code_score, 
-          quiz_score, 
-          firewall_score, 
-          last_updated,
           ctf_solved_count,
           phish_solved_count,
           code_solved_count,
-          quiz_answered,
           quiz_correct,
-          firewall_best_score,
-          badges
+          firewall_best_score
         `)
         .order('total_score', { ascending: false })
         .limit(limit);
@@ -131,19 +123,19 @@ class LeaderboardService {
           name: profile?.name || null,
           avatar_url: profile?.avatar_url || null,
           total_score: score.total_score || 0,
-          ctf_score: score.ctf_score || 0,
-          phish_score: score.phish_score || 0,
-          code_score: score.code_score || 0,
-          quiz_score: score.quiz_score || 0,
-          firewall_score: score.firewall_score || 0,
-          last_updated: score.last_updated,
+          ctf_score: 0,
+          phish_score: 0,
+          code_score: 0,
+          quiz_score: 0,
+          firewall_score: 0,
+          last_updated: new Date().toISOString(),
           ctf_solved_count: score.ctf_solved_count || 0,
           phish_solved_count: score.phish_solved_count || 0,
           code_solved_count: score.code_solved_count || 0,
-          quiz_answered: score.quiz_answered || 0,
+          quiz_answered: 0,
           quiz_correct: score.quiz_correct || 0,
           firewall_best_score: score.firewall_best_score || 0,
-          badges: score.badges || [],
+          badges: [],
           rank: idx + 1,
         } as LeaderboardEntry;
 
@@ -515,7 +507,6 @@ class LeaderboardService {
         code_score: Math.round(codePercent * 10),
         quiz_score: Math.round(quizPercent * 10),
         firewall_score: Math.round(firewallPercent * 10),
-        last_updated: new Date().toISOString(),
       };
 
       console.log('[leaderboardService] Payload to save:', JSON.stringify(payload, null, 2));

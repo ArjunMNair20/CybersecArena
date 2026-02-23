@@ -1,3 +1,6 @@
+import { processQuizQuestions } from '../utils/shuffleOptions';
+import { normalizeQuizChoices } from '../utils/normalizeOptionLengths';
+
 export type QuizQuestion = {
   id: string;
   difficulty: 'easy' | 'medium' | 'hard';
@@ -7,7 +10,7 @@ export type QuizQuestion = {
   explain: string;
 };
 
-export const QUIZ_QUESTIONS: QuizQuestion[] = [
+const QUIZ_QUESTIONS_BASE: QuizQuestion[] = [
   // -------------------- BEGINNER (EASY) – 25 QUESTIONS --------------------
   {
     id: 'q-easy-1',
@@ -838,3 +841,7 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
     explain: 'Zero trust treats every network segment as untrusted and requires continuous verification.',
   },
 ];
+
+// Shuffle all choices to randomize answer positions
+// Then normalize lengths to prevent prediction based on text size
+export const QUIZ_QUESTIONS = normalizeQuizChoices(processQuizQuestions(QUIZ_QUESTIONS_BASE));

@@ -135,6 +135,15 @@ export default function Signup() {
       if (errorMessage.includes('already registered') || errorMessage.includes('Please sign in instead')) {
         setEmailExistsError(true);
         setError(errorMessage);
+      } else if (
+        errorMessage.includes('rate limit') || 
+        errorMessage.includes('too many') ||
+        errorMessage.includes('temporarily busy') ||
+        errorMessage.includes('email service')
+      ) {
+        // Email rate limit error - suggest checking if account was created
+        setError('Email service is temporarily busy. Check if your account was created by trying to login. If it worked, you can verify your email later.');
+        console.warn('Email rate limited. User should check if account exists by trying to login.');
       } else {
         setError(errorMessage);
       }

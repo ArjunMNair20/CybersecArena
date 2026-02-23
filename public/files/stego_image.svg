@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="500" height="400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 400">
+  <!-- CYBERSECURITY STEGANOGRAPHY CHALLENGE -->
+  <!-- Secret Hidden Text: STEGANOGRAPHY_IS_FUN -->
+  <!-- Do not share this comment! The hidden message contains the flag. -->
+  
+  <defs>
+    <style>
+      .background { fill: #0f1419; }
+      .main-circle { fill: #00d9ff; }
+      .accent { fill: #ff006e; }
+      .text-visible { font-size: 20px; font-family: monospace; fill: #ffffff; }
+      .hidden-text { fill: #0f1419; font-size: 1px; }
+    </style>
+  </defs>
+  
+  <!-- Background -->
+  <rect class="background" width="500" height="400"/>
+  
+  <!-- Decorative circles -->
+  <circle class="main-circle" cx="100" cy="100" r="40" opacity="0.6"/>
+  <circle class="main-circle" cx="400" cy="300" r="50" opacity="0.5"/>
+  <circle class="accent" cx="250" cy="200" r="35" opacity="0.7"/>
+  
+  <!-- Lock icons/shapes -->
+  <rect x="200" y="150" width="100" height="80" fill="none" stroke="#00d9ff" stroke-width="2" rx="5"/>
+  <circle cx="250" cy="175" r="15" fill="none" stroke="#00d9ff" stroke-width="2"/>
+  <rect x="240" y="190" width="20" height="25" fill="#00d9ff"/>
+  
+  <!-- Visible text -->
+  <text x="250" y="320" text-anchor="middle" class="text-visible">SECURITY ANALYSIS</text>
+  <text x="250" y="350" text-anchor="middle" class="text-visible" font-size="14" fill="#888888">Analyze this image carefully</text>
+  
+  <!-- Hidden text embedded in SVG as invisible elements and comments -->
+  <!-- FLAG IS: STEGANOGRAPHY_IS_FUN -->
+  <text class="hidden-text" x="10" y="10">STEGANOGRAPHY_IS_FUN</text>
+  
+  <!-- Binary representation of the flag (steganography hint) -->
+  <g opacity="0.05">
+    <text x="50" y="50" font-size="12" fill="#00d9ff" font-family="monospace">01010011 01010100 01000101 01000111</text>
+  </g>
+  
+  <!-- Additional security patterns -->
+  <rect x="20" y="20" width="8" height="8" fill="#ff006e"/>
+  <rect x="40" y="20" width="8" height="8" fill="#00d9ff"/>
+  <rect x="60" y="20" width="8" height="8" fill="#ff006e"/>
+  <rect x="80" y="20" width="8" height="8" fill="#00d9ff"/>
+  
+  <!-- Hint in comments -->
+  <!-- The flag is hidden within the SVG source code. Look for text elements and comments. -->
+  
+</svg>

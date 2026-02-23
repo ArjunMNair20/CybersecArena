@@ -5,17 +5,28 @@
 /* Global Modern Cybersecurity Theme */
 html, body, #root {
   height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
   transition: background-color 0.3s ease, color 0.3s ease;
+  background: transparent;
+  position: relative;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 /* Dark Theme (Default) - Modern & Attractive */
 body,
 [data-theme="dark"] body,
 body[data-theme="dark"] {
-  background: linear-gradient(135deg, #071227 0%, #0b1b3a 30%, #071227 70%);
-  background-attachment: fixed;
+  background: transparent;
   color: #eef2f7; /* light text on dark */
   min-height: 100vh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 [data-theme="dark"],
@@ -35,9 +46,7 @@ body[data-theme="dark"] {
 /* Light Theme - Modern & Attractive */
 [data-theme="light"] body,
 body[data-theme="light"] {
-  /* Clean, airy light background with subtle warmth */
-  background: linear-gradient(135deg, #fbfdfe 0%, #fbfbfa 35%, #fffefb 70%);
-  background-attachment: fixed;
+  background: transparent;
   color: #071227 !important;
   min-height: 100vh;
 }
@@ -329,3 +338,56 @@ body[data-theme="light"] .glow-accent-blue {
 .animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
 }
+
+/* Animated Background Enhancements */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes rotate-slow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    filter: blur(10px);
+  }
+  50% {
+    opacity: 0.6;
+    filter: blur(20px);
+  }
+}
+
+@keyframes shimmer {
+  0%, 100% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+/* Utility classes for animated elements */
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-rotate-slow {
+  animation: rotate-slow 30s linear infinite;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 4s ease-in-out infinite;
+}
+

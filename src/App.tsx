@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
+import AnimatedBackground from './components/AnimatedBackground';
 
 // Lazy load pages for better performance
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -51,6 +52,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <AnimatedBackground />
         <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Root redirect to login */}

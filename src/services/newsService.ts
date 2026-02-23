@@ -17,6 +17,40 @@ class NewsService {
   private cacheTimestamp: number = 0;
   private CACHE_DURATION = 2 * 60 * 1000; // 2 minute cache
   private isFetching = false;
+  private readonly STORAGE_KEY = 'cybersec_news_cache';
+  private readonly STORAGE_TIMESTAMP_KEY = 'cybersec_news_timestamp';
+
+  constructor() {
+    // Load from localStorage on initialization
+    this.loadFromStorage();
+  }
+
+  private loadFromStorage() {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const timestamp = localStorage.getItem(this.STORAGE_TIMESTAMP_KEY);
+      
+      if (stored && timestamp) {
+        this.newsCache = JSON.parse(stored);
+        this.cacheTimestamp = parseInt(timestamp, 10);
+        console.log(`📦 Loaded ${this.newsCache.length} articles from localStorage`);
+      }
+    } catch (error) {
+      console.warn('Failed to load news from localStorage:', error);
+    }
+  }
+
+  private saveToStorage() {
+    try {
+      if (this.newsCache && this.newsCache.length > 0) {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.newsCache));
+        localStorage.setItem(this.STORAGE_TIMESTAMP_KEY, this.cacheTimestamp.toString());
+        console.log(`💾 Saved ${this.newsCache.length} articles to localStorage`);
+      }
+    } catch (error) {
+      console.warn('Failed to save news to localStorage:', error);
+    }
+  }
 
   // Helper function with timeout
   private async fetchWithTimeout(url: string, options: RequestInit = {}, timeout: number = 5000): Promise<Response> {
@@ -240,7 +274,15 @@ class NewsService {
     
     // Return cached if still valid
     if (!forceRefresh && this.newsCache && Date.now() - this.cacheTimestamp < this.CACHE_DURATION) {
-      console.log('Returning cached news');
+      console.log('⚡ Returning fresh in-memory cache');
+      return this.newsCache.slice(0, limit);
+    }
+
+    // Return localStorage data immediately if available (even if old)
+    if (!forceRefresh && this.newsCache) {
+      console.log('⚡ Returning cached data immediately from memory');
+      // Trigger background refresh in the background
+      this.refreshInBackground();
       return this.newsCache.slice(0, limit);
     }
 
@@ -250,9 +292,38 @@ class NewsService {
       return this.newsCache || [];
     }
 
+    // If no cache at all, try localStorage
+    if (!this.newsCache) {
+      this.loadFromStorage();
+      if (this.newsCache) {
+        console.log('⚡ Returning localStorage data immediately');
+        // Trigger background refresh
+        this.refreshInBackground();
+        return this.newsCache.slice(0, limit);
+      }
+    }
+
+    // If still no data, fetch synchronously
+    return await this.performFetch(limit);
+  }
+
+  private async refreshInBackground() {
+    // Fetch fresh data without blocking - fire and forget
+    this.performFetch(30).catch(error => {
+      console.log('Background refresh failed silently:', error);
+    });
+  }
+
+  private async performFetch(limit: number): Promise<NewsArticle[]> {
+    // Prevent multiple simultaneous requests
+    if (this.isFetching) {
+      console.log('Already fetching, returning cache');
+      return this.newsCache || [];
+    }
+
     this.isFetching = true;
     try {
-      console.log('Fetching live cybersecurity news from multiple sources...');
+      console.log('📡 Fetching live cybersecurity news from multiple sources...');
       
       // Fetch from multiple sources in parallel (with better error handling)
       const results = await Promise.allSettled([
@@ -269,9 +340,9 @@ class NewsService {
       results.forEach((result, index) => {
         if (result.status === 'fulfilled') {
           allArticles.push(...result.value);
-          console.log(`Source ${index + 1} fetched ${result.value.length} articles`);
+          console.log(`✓ Source ${index + 1} fetched ${result.value.length} articles`);
         } else {
-          console.warn(`Source ${index + 1} failed:`, result.reason);
+          console.warn(`✗ Source ${index + 1} failed:`, result.reason);
         }
       });
 
@@ -293,6 +364,9 @@ class NewsService {
       // Update cache
       this.newsCache = uniqueArticles;
       this.cacheTimestamp = Date.now();
+      
+      // Save to localStorage for persistence
+      this.saveToStorage();
       
       console.log(`✓ Successfully fetched ${uniqueArticles.length} live news articles from ${results.filter(r => r.status === 'fulfilled').length} sources`);
       return uniqueArticles.slice(0, limit);

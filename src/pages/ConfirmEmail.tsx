@@ -85,30 +85,44 @@ export default function ConfirmEmail() {
           {status === 'loading' && (
             <>
               <Loader2 className="w-16 h-16 text-cyan-400 animate-spin mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-cyan-300 mb-2">Confirming Email</h2>
+              <h2 className="text-2xl font-bold text-cyan-300 mb-2">Verifying Your Email</h2>
               <p className="text-slate-400">{message}</p>
+              <div className="mt-6 text-sm text-slate-500">
+                Please wait while we confirm your email address...
+              </div>
             </>
           )}
 
           {status === 'success' && (
             <>
-              <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-green-300 mb-2">Email Confirmed!</h2>
-              <p className="text-slate-400 mb-6">{message}</p>
-              <button
-                onClick={() => navigate('/login')}
-                className="px-6 py-3 rounded-lg bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/30 transition-colors font-medium"
-              >
-                Go to Login
-              </button>
+              <div className="mb-4">
+                <CheckCircle className="w-16 h-16 text-green-400 mx-auto drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+              </div>
+              <h2 className="text-3xl font-bold text-green-300 mb-2">✓ Email Confirmed</h2>
+              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-6">
+                <p className="text-slate-300 mb-2 font-medium">Great news! Your email has been successfully verified.</p>
+                <p className="text-green-300 text-lg font-semibold mb-4">Welcome to Cybersec Arena! 🎯</p>
+                <p className="text-slate-400 text-sm">You can now log in and start your cybersecurity training journey.</p>
+              </div>
+              <div className="space-y-3">
+                <button
+                  onClick={() => navigate('/login')}
+                  className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-cyan-500 to-cyan-600 border border-cyan-400/50 text-white hover:from-cyan-600 hover:to-cyan-700 transition-all font-bold shadow-lg hover:shadow-cyan-500/30"
+                >
+                  Continue to Login
+                </button>
+                <p className="text-xs text-slate-500 mt-3">You will be redirected automatically in a few seconds...</p>
+              </div>
             </>
           )}
 
           {status === 'error' && (
             <>
-              <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+              <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
               <h2 className="text-2xl font-bold text-red-300 mb-2">Confirmation Failed</h2>
-              <p className="text-slate-400 mb-6">{message}</p>
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+                <p className="text-slate-300 mb-2">{message}</p>
+              </div>
               <div className="space-y-3">
                 <button
                   onClick={() => navigate('/login')}
@@ -120,7 +134,7 @@ export default function ConfirmEmail() {
                   onClick={() => navigate('/signup')}
                   className="w-full px-6 py-3 rounded-lg bg-slate-700/50 border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors font-medium"
                 >
-                  Sign Up Again
+                  Try Signing Up Again
                 </button>
               </div>
             </>

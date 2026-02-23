@@ -20,22 +20,44 @@ export default function WeeklyChallengeComponent() {
   const [feedback, setFeedback] = useState<Record<string, { isCorrect: boolean; message: string }>>({});
   const [selectedQuestion, setSelectedQuestion] = useState<number>(1);
   const [showCompletionSplash, setShowCompletionSplash] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Calculate week number based on user's signup date
-  const currentWeek = user && user.createdAt ? getUserWeekNumber(user.createdAt) : getCurrentWeekNumber();
-  const weekInfo = user && user.createdAt ? getWeekInfo(user.createdAt) : getWeekInfo(currentWeek);
-  const challenges = user && user.createdAt ? getCurrentWeeklyChallenges(user.createdAt) : getCurrentWeeklyChallenges();
+  let currentWeek: number;
+  let weekInfo: any;
+  let challenges: WeeklyChallenge[];
+
+  try {
+    currentWeek = user && user.createdAt ? getUserWeekNumber(user.createdAt) : getCurrentWeekNumber();
+    weekInfo = user && user.createdAt ? getWeekInfo(user.createdAt) : getWeekInfo(currentWeek);
+    challenges = user && user.createdAt ? getCurrentWeeklyChallenges(user.createdAt) : getCurrentWeeklyChallenges();
+  } catch (err) {
+    console.error('[WeeklyChallenge] Error calculating week/challenges:', err);
+    currentWeek = 1;
+    weekInfo = { startDate: new Date(), endDate: new Date() };
+    challenges = [];
+  }
 
   useEffect(() => {
-    setWeeklyChallenges(challenges);
-    // Initialize new weekly challenge if week changed
-    if (state.weekly.weekNumber !== currentWeek) {
-      dispatch({
-        type: 'UPDATE_WEEKLY',
-        payload: { weekNumber: currentWeek, solvedIds: [] },
-      });
+    try {
+      console.log('[WeeklyChallenge] Setting challenges:', challenges?.length || 0);
+      setWeeklyChallenges(challenges || []);
+      
+      // Initialize new weekly challenge if week changed
+      if (state && state.weekly && state.weekly.weekNumber !== currentWeek) {
+        dispatch({
+          type: 'UPDATE_WEEKLY',
+          payload: { weekNumber: currentWeek, solvedIds: [] },
+        });
+      }
+      setIsLoading(false);
+    } catch (err) {
+      console.error('[WeeklyChallenge] Error initializing challenges:', err);
+      setError(String(err instanceof Error ? err.message : err));
+      setIsLoading(false);
     }
-  }, [currentWeek, state.weekly.weekNumber, challenges, dispatch]);
+  }, [currentWeek, state?.weekly?.weekNumber, challenges, dispatch]);
 
   const handleCTFSubmit = (challengeId: string, userAnswer: string, correctAnswer: string) => {
     const userContent = userAnswer.replace(/^[Cc][Ss][Aa]\{|\}$/g, '').trim();
@@ -53,7 +75,7 @@ export default function WeeklyChallengeComponent() {
       },
     }));
 
-    if (isCorrect && !state.weekly.solvedIds.includes(challengeId)) {
+    if (isCorrect && state && state.weekly && !state.weekly.solvedIds.includes(challengeId)) {
       markWeeklySolved(challengeId);
       syncToLeaderboard(user || null);
       // Auto-advance to next question after a short delay
@@ -75,7 +97,7 @@ export default function WeeklyChallengeComponent() {
       },
     }));
 
-    if (isCorrect && !state.weekly.solvedIds.includes(challengeId)) {
+    if (isCorrect && state && state.weekly && !state.weekly.solvedIds.includes(challengeId)) {
       markWeeklySolved(challengeId);
       syncToLeaderboard(user || null);
       // Auto-advance to next question after a short delay
@@ -97,7 +119,7 @@ export default function WeeklyChallengeComponent() {
       },
     }));
 
-    if (isCorrect && !state.weekly.solvedIds.includes(challengeId)) {
+    if (isCorrect && state && state.weekly && !state.weekly.solvedIds.includes(challengeId)) {
       markWeeklySolved(challengeId);
       syncToLeaderboard(user || null);
       // Auto-advance to next question after a short delay
@@ -119,7 +141,7 @@ export default function WeeklyChallengeComponent() {
       },
     }));
 
-    if (isCorrect && !state.weekly.solvedIds.includes(challengeId)) {
+    if (isCorrect && state && state.weekly && !state.weekly.solvedIds.includes(challengeId)) {
       markWeeklySolved(challengeId);
       syncToLeaderboard(user || null);
       // Auto-advance to next question after a short delay
@@ -131,7 +153,7 @@ export default function WeeklyChallengeComponent() {
     }
   };
 
-  const solvedCount = state.weekly.solvedIds.length;
+  const solvedCount = state && state.weekly ? state.weekly.solvedIds.length : 0;
   const totalCount = 20;
   const progress = Math.round((solvedCount / totalCount) * 100);
   const currentChallenge = weeklyChallenges[selectedQuestion - 1];
@@ -154,14 +176,33 @@ export default function WeeklyChallengeComponent() {
 
   return (
     <>
-      {showCompletionSplash && (
-        <WeeklyCompletionSplash
-          weekNumber={currentWeek}
-          nextWeekDate={getNextWeekDate()}
-          onDismiss={() => setShowCompletionSplash(false)}
-        />
+      {error && (
+        <div className="p-6 bg-red-500/10 border border-red-500/30 rounded-lg">
+          <h2 className="text-lg font-bold text-red-400 mb-2">Error Loading Weekly Challenge</h2>
+          <p className="text-red-300 text-sm">{error}</p>
+          <p className="text-red-300 text-xs mt-2">Check browser console for more details</p>
+        </div>
       )}
-      <div className="space-y-6">
+
+      {isLoading && !error && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-slate-400">Loading weekly challenges...</p>
+          </div>
+        </div>
+      )}
+      
+      {!isLoading && !error && (
+      <>
+        {showCompletionSplash && (
+          <WeeklyCompletionSplash
+            weekNumber={currentWeek}
+            nextWeekDate={getNextWeekDate()}
+            onDismiss={() => setShowCompletionSplash(false)}
+          />
+        )}
+        <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-purple-400 mb-2 flex items-center gap-2">
@@ -225,7 +266,7 @@ export default function WeeklyChallengeComponent() {
         <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-10">
           {Array.from({ length: totalCount }, (_, i) => i + 1).map((num) => {
             const challenge = weeklyChallenges[num - 1];
-            const isSolved = state.weekly.solvedIds.includes(challenge?.id);
+            const isSolved = state && state.weekly ? state.weekly.solvedIds.includes(challenge?.id) : false;
             const typeColors: Record<string, string> = {
               ctf: 'bg-purple-600 text-purple-100',
               phish: 'bg-red-600 text-red-100',
@@ -423,7 +464,9 @@ export default function WeeklyChallengeComponent() {
           )}
         </div>
       )}
-    </div>
+        </div>
+        </>
+      )}
     </>
   );
 }

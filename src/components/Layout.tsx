@@ -119,9 +119,9 @@ function Layout() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0f1a] text-white">
+    <div className="min-h-screen bg-transparent text-white">
       {/* Sidebar */}
-      <aside className="hidden md:fixed md:left-0 md:top-0 md:h-screen md:w-[280px] md:flex flex-col border-r border-[#1e2a3f] bg-gradient-to-b from-[#0a0f1a] via-[#0f1628] to-[#0a0f1a] p-6 gap-6 backdrop-blur relative overflow-y-auto">
+      <aside className="hidden md:fixed md:left-0 md:top-0 md:h-screen md:w-[280px] md:flex flex-col border-r border-[#1e2a3f] bg-gradient-to-b from-[#0a0f1a]/90 via-[#0f1628]/90 to-[#0a0f1a]/90 p-6 gap-6 backdrop-blur relative overflow-y-auto">
         {/* Background glow */}
         <div className="absolute -top-40 -left-40 w-80 h-80 rounded-full opacity-20 blur-3xl pointer-events-none" style={{ background: 'linear-gradient(135deg, #06b6d4, #0284c7)' }} />
         
@@ -170,7 +170,7 @@ function Layout() {
       </aside>
 
       {/* Main */}
-      <main className="relative md:ml-[280px]">
+      <main className="relative md:ml-[280px] min-h-screen">
         <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-[#1e2a3f] bg-gradient-to-r from-[#0a0f1a]/80 to-[#0f1628]/80 backdrop-blur">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-gradient-to-br from-[#06b6d4] via-[#0284c7] to-[#0ea5e9] shadow-sm">

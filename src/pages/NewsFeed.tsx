@@ -14,16 +14,13 @@ export default function NewsFeed() {
 
   // Load news immediately on mount and in background
   useEffect(() => {
-    // Load cached data immediately without forcing refresh
+    // Load news (will return immediately if cached)
     loadNewsWithCache(false);
-    
-    // Then fetch fresh data in background
-    loadNewsInBackground();
 
     // Set up auto-refresh interval if enabled
     if (autoRefreshEnabled) {
       refreshIntervalRef.current = setInterval(() => {
-        loadNewsInBackground();
+        loadNewsWithCache(false);
       }, 3 * 60 * 1000); // 3 minutes
     }
 
@@ -52,6 +49,7 @@ export default function NewsFeed() {
   const loadNewsWithCache = async (forceRefresh: boolean = false) => {
     try {
       setError(null);
+      if (forceRefresh) setLoading(true);
       
       // Fetch news (returns cache immediately if available, fetches in background)
       const news = await newsService.getCybersecurityNews(30, forceRefresh);
@@ -79,25 +77,6 @@ export default function NewsFeed() {
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Fetch fresh news in background without blocking UI
-  const loadNewsInBackground = async () => {
-    try {
-      const news = await newsService.getCybersecurityNews(30, true);
-      if (news.length > 0) {
-        setArticles(news);
-        setFilteredArticles(news);
-        setLastRefreshTime(new Date().toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit',
-          second: '2-digit'
-        }));
-      }
-    } catch (err) {
-      // Silent fail in background
-      console.error('Background refresh failed:', err);
     }
   };
 

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Confirmation - Cybersec Arena</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #1f2937;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e40af 0%, #0f766e 100%);
+            padding: 40px 20px;
+            text-align: center;
+            color: white;
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .logo-text {
+            font-size: 14px;
+            opacity: 0.95;
+            font-weight: 400;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .greeting {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 20px;
+        }
+
+        .message {
+            font-size: 16px;
+            color: #4b5563;
+            margin-bottom: 30px;
+            line-height: 1.8;
+        }
+
+        .highlight {
+            color: #1e40af;
+            font-weight: 600;
+        }
+
+        .cta-section {
+            text-align: center;
+            margin: 40px 0;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+            color: white;
+            padding: 16px 40px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(30, 64, 175, 0.3);
+            border: none;
+            cursor: pointer;
+        }
+
+        .cta-button:hover {
+            background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%);
+            box-shadow: 0 6px 20px rgba(30, 64, 175, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .alternative-link {
+            margin-top: 20px;
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .alternative-link a {
+            color: #1e40af;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .verification-note {
+            background: #f0f4f8;
+            border-left: 4px solid #1e40af;
+            padding: 20px;
+            margin: 30px 0;
+            border-radius: 6px;
+        }
+
+        .verification-note-title {
+            font-weight: 700;
+            color: #1e40af;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .verification-note-text {
+            font-size: 14px;
+            color: #4b5563;
+            line-height: 1.6;
+        }
+
+        .features {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            padding: 25px;
+            border-radius: 8px;
+            margin: 30px 0;
+            border: 1px solid #d1fae5;
+        }
+
+        .features-title {
+            font-weight: 700;
+            color: #065f46;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .feature-list {
+            list-style: none;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            color: #047857;
+            font-size: 14px;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .feature-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            font-weight: 700;
+            color: #10b981;
+            font-size: 18px;
+        }
+
+        .footer {
+            background: #f9fafb;
+            padding: 30px 40px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .footer-text {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .footer-links {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .footer-links a {
+            color: #1e40af;
+            text-decoration: none;
+            margin: 0 8px;
+        }
+
+        .social-icons {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .copyright {
+            font-size: 11px;
+            color: #d1d5db;
+            margin-top: 15px;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 15px;
+        }
+
+        .security-info {
+            background: #fef3c7;
+            border-left: 4px solid #d97706;
+            padding: 15px;
+            margin: 25px 0;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #92400e;
+        }
+
+        .security-icon {
+            font-size: 20px;
+            margin-right: 8px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
+            }
+
+            .header {
+                padding: 30px 15px;
+            }
+
+            .content {
+                padding: 25px;
+            }
+
+            .greeting {
+                font-size: 20px;
+            }
+
+            .message {
+                font-size: 14px;
+            }
+
+            .cta-button {
+                width: 100%;
+                padding: 14px 20px;
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🛡️</div>
+            <div class="logo-text">Cybersec Arena</div>
+        </div>
+
+        <div class="content">
+            <div class="greeting">Welcome to Cybersec Arena! 🎯</div>
+
+            <p class="message">
+                Thank you for signing up! We're excited to have you join our community of cybersecurity enthusiasts and professionals.
+            </p>
+
+            <p class="message">
+                Before you can access your training platform, we need to verify that this is your email address. Simply click the button below to confirm your email:
+            </p>
+
+            <div class="cta-section">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">✓ Confirm Your Email</a>
+                <div class="alternative-link">
+                    If the button doesn't work, copy and paste this link in your browser:<br>
+                    <a href="{{ .ConfirmationURL }}">{{ .ConfirmationURL }}</a>
+                </div>
+            </div>
+
+            <div class="verification-note">
+                <div class="verification-note-title">⏱️ Link Expiration</div>
+                <div class="verification-note-text">
+                    This verification link will expire in <strong>24 hours</strong>. If it expires, you can request a new confirmation email from the login page.
+                </div>
+            </div>
+
+            <div class="features">
+                <div class="features-title">What You'll Access After Confirmation:</div>
+                <ul class="feature-list">
+                    <li>CTF Challenges - Capture The Flag security exercises</li>
+                    <li>Phishing Detection - Real-world phishing scenario training</li>
+                    <li>Code Security - Vulnerability identification and fixing</li>
+                    <li>Cyber Quizzes - Comprehensive cybersecurity knowledge assessments</li>
+                    <li>Premium Badges - Earn certifications as you complete challenges</li>
+                    <li>Leaderboard Rankings - Compete with other learners globally</li>
+                </ul>
+            </div>
+
+            <div class="security-info">
+                <span class="security-icon">🔒</span>
+                <strong>Security Notice:</strong> We will never ask for your password via email. If you didn't sign up for Cybersec Arena, please disregard this email or click "Report Abuse" in your email client.
+            </div>
+
+            <p class="message" style="margin-bottom: 0;">
+                Questions? Our support team is here to help. Visit our FAQ or contact us at <span class="highlight">support@cybersec-arena.com</span>
+            </p>
+        </div>
+
+        <div class="footer">
+            <p class="footer-text">
+                <strong>Cybersec Arena</strong> - Professional Cybersecurity Training Platform
+            </p>
+            <p class="footer-text">
+                Empowering the next generation of cybersecurity professionals through hands-on training and real-world scenarios.
+            </p>
+            <div class="footer-links">
+                <a href="https://cybersec-arena.com">Visit Website</a> |
+                <a href="https://cybersec-arena.com/privacy">Privacy Policy</a> |
+                <a href="https://cybersec-arena.com/terms">Terms of Service</a> |
+                <a href="https://cybersec-arena.com/help">Help Center</a>
+            </div>
+            <div class="copyright">
+                &copy; 2026 Cybersec Arena. All rights reserved. | You received this email because you signed up for Cybersec Arena.
+            </div>
+        </div>
+    </div>
+</body>
+</html>

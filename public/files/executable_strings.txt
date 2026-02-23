@@ -1,0 +1,65 @@
+/lib64/ld-linux-x86-64.so.2
+libc.so.6
+printf
+scanf
+exit
+strlen
+strcmp
+__libc_start_main
+__gmon_start__
+GLIBC_2.2.5
+GLIBC_2.14
+GCC_3.0
+===================
+| AUTHENTICATION LOGIN SYSTEM v1.2
+===================
+
+Enter password: 
+Checking credentials...
+Invalid password! Access denied.
+Incorrect input detected.
+Try again.
+Please enter valid credentials.
+
+Access Granted! Welcome to the system!
+You have successfully authenticated!
+Congratulations! You are now authorized.
+
+ADMIN_PANEL_ACCESS
+USER_DB_KEY
+SYSTEM_CONFIG
+PASSWORD_HASH
+ENCRYPTION_KEY
+
+Comparing input against stored value...
+Byte-by-byte comparison in progress.
+Validating user credentials.
+
+Password is: REVERSE_ME
+Secret key loaded successfully.
+
+sys_admin
+root_user
+guest_account
+
+Connection established.
+Data transfer initiated.
+Session active.
+
+Buffer written successfully.
+Stack frame setup.
+Function prologue executed.
+
+/usr/lib/libcrypto.so
+/usr/lib/libssl.so
+/bin/bash
+/etc/passwd
+/root/.ssh/id_rsa
+
+.text
+.data
+.bss
+.rodata
+.symtab
+.strtab
+.shstrtab

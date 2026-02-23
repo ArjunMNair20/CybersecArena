@@ -1,3 +1,6 @@
+import { processChallenges } from '../utils/shuffleOptions';
+import { normalizeChallengeOptions } from '../utils/normalizeOptionLengths';
+
 export type CodeChallenge = {
   id: string;
   title: string;
@@ -9,7 +12,7 @@ export type CodeChallenge = {
   explanation: string;
 };
 
-export const CODE_CHALLENGES: CodeChallenge[] = [
+const CODE_CHALLENGES_BASE: CodeChallenge[] = [
   // ==================== BEGINNER LEVEL ====================
   {
     id: 'sql-injection-1',
@@ -937,3 +940,7 @@ app.get('/user/:id', (req, res) => {
     explanation: 'Log detailed errors server-side only. Return generic messages to clients: "An error occurred". Use error IDs to correlate logs.',
   },
 ];
+
+// Shuffle all options to randomize answer positions
+// Then normalize lengths to prevent prediction based on text size
+export const CODE_CHALLENGES = normalizeChallengeOptions(processChallenges(CODE_CHALLENGES_BASE));
