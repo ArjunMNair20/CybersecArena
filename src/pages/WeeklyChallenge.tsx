@@ -109,6 +109,9 @@ function WeeklyChallengeContent() {
           type: 'UPDATE_WEEKLY',
           payload: { weekNumber: currentWeek, solvedIds: [] },
         });
+      } else if (state.weekly.weekNumber === 0) {
+        // UNINITIALIZED STATE - skip logic to allow storage to load
+        console.log('[WeeklyChallenge] Waiting for storage to load (weekNumber is 0)...');
       } else if (state.weekly.solvedIds && state.weekly.solvedIds.length > 0) {
         // HAS SOLVED DATA - ALWAYS PRESERVE (never clear existing progress)
         console.log('[WeeklyChallenge] Found existing solved data, preserving:', state.weekly.solvedIds.length, 'challenges');
