@@ -67,8 +67,20 @@ export default function WeeklyChallengeComponent() {
           type: 'UPDATE_WEEKLY',
           payload: { weekNumber: currentWeek, solvedIds: [] },
         });
+      } else if (state.weekly.solvedIds && state.weekly.solvedIds.length > 0) {
+        // HAS SOLVED DATA - ALWAYS PRESERVE (never clear existing progress)
+        console.log('[WeeklyChallenge] Found existing solved data, preserving:', state.weekly.solvedIds.length, 'challenges');
+        
+        // Update week number if needed, but preserve solvedIds
+        if (state.weekly.weekNumber !== currentWeek) {
+          console.log('[WeeklyChallenge] Updating week number while preserving solved challenges:', state.weekly.weekNumber, '→', currentWeek);
+          dispatch({
+            type: 'UPDATE_WEEKLY',
+            payload: { weekNumber: currentWeek, solvedIds: state.weekly.solvedIds },
+          });
+        }
       } else if (state.weekly.weekNumber < currentWeek) {
-        // NEW WEEK DETECTED - Reset progress
+        // NEW WEEK - Reset only if there's no existing solved data
         console.log('[WeeklyChallenge] New week detected! Resetting progress.', state.weekly.weekNumber, '→', currentWeek);
         dispatch({
           type: 'UPDATE_WEEKLY',
