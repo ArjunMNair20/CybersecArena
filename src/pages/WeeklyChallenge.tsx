@@ -381,7 +381,7 @@ function WeeklyChallengeContent() {
             nextWeekDate={getNextWeekDate()}
             onDismiss={() => setShowCompletionSplash(false)}
           />
-        )}
+        ) : null}
         <div className="space-y-6">
       {/* Header */}
       <div>
