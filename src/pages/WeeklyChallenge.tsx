@@ -1,4 +1,4 @@
-import { useState, useEffect, Component, ReactNode } from 'react';
+import { useState, useEffect, Component, ReactNode, useMemo } from 'react';
 import { getCurrentWeeklyChallenges, getWeekInfo, getCurrentWeekNumber, getUserWeekNumber, WeeklyChallenge } from '../data/weekly';
 import { useProgress, useSyncProgressToLeaderboard } from '../lib/progress';
 import { useAuth } from '../contexts/AuthContext';
@@ -65,20 +65,24 @@ function WeeklyChallengeContent() {
 
 
   // Calculate week number based on user's signup date
-  let currentWeek: number;
-  let weekInfo: Record<string, unknown>;
-  let challenges: WeeklyChallenge[];
+  const { currentWeek, weekInfo, challenges } = useMemo(() => {
+    let week: number;
+    let info: Record<string, unknown>;
+    let chal: WeeklyChallenge[];
 
-  try {
-    currentWeek = user && user.createdAt ? getUserWeekNumber(user.createdAt) : getCurrentWeekNumber();
-    weekInfo = user && user.createdAt ? getWeekInfo(user.createdAt) : getWeekInfo(currentWeek);
-    challenges = user && user.createdAt ? getCurrentWeeklyChallenges(user.createdAt) : getCurrentWeeklyChallenges();
-  } catch (err) {
-    console.error('[WeeklyChallenge] Error calculating week/challenges:', err);
-    currentWeek = 1;
-    weekInfo = { startDate: new Date(), endDate: new Date() };
-    challenges = [];
-  }
+    try {
+      week = user && user.createdAt ? getUserWeekNumber(user.createdAt) : getCurrentWeekNumber();
+      info = user && user.createdAt ? getWeekInfo(user.createdAt) : getWeekInfo(week);
+      chal = user && user.createdAt ? getCurrentWeeklyChallenges(user.createdAt) : getCurrentWeeklyChallenges();
+    } catch (err) {
+      console.error('[WeeklyChallenge] Error calculating week/challenges:', err);
+      week = 1;
+      info = { startDate: new Date(), endDate: new Date() };
+      chal = [];
+    }
+
+    return { currentWeek: week, weekInfo: info, challenges: chal };
+  }, [user]);
 
   // Initialize weekly state - only run once when component mounts
   useEffect(() => {
@@ -158,7 +162,8 @@ function WeeklyChallengeContent() {
       console.error('[WeeklyChallenge] Error initializing weekly state:', err);
       setWeeklyInitialized(true); // Mark as initialized even on error to avoid infinite loops
     }
-  }, [isLoaded, weeklyInitialized, dispatch, currentWeek]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, weeklyInitialized, currentWeek]);
 
   const handleCTFSubmit = (challengeId: string, userAnswer: string, correctAnswer: string) => {
     try {
