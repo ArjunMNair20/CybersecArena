@@ -22,6 +22,7 @@ export default function WeeklyChallengeComponent() {
   const [showCompletionSplash, setShowCompletionSplash] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [weeklyInitialized, setWeeklyInitialized] = useState<boolean>(false);
 
   // Calculate week number based on user's signup date
   let currentWeek: number;
@@ -39,27 +40,89 @@ export default function WeeklyChallengeComponent() {
     challenges = [];
   }
 
+  // Initialize weekly state - only run once when component mounts
   useEffect(() => {
     try {
-      console.log('[WeeklyChallenge] Setting challenges:', challenges?.length || 0);
+      console.log('[WeeklyChallenge] Component mounted, setting challenges');
       setWeeklyChallenges(challenges || []);
-      
-      // Initialize new weekly challenge if week changed
-      if (state && state.weekly && state.weekly.weekNumber !== currentWeek) {
-        dispatch({
-          type: 'UPDATE_WEEKLY',
-          payload: { weekNumber: currentWeek, solvedIds: [] },
-        });
-      }
       setIsLoading(false);
     } catch (err) {
       console.error('[WeeklyChallenge] Error initializing challenges:', err);
       setError(String(err instanceof Error ? err.message : err));
       setIsLoading(false);
     }
-  }, [currentWeek, state?.weekly?.weekNumber, challenges, dispatch]);
+  }, [challenges]);
+
+  // Manage weekly state - ensure proper week initialization
+  useEffect(() => {
+    if (weeklyInitialized) return; // Only run once
+    
+    try {
+      console.log('[WeeklyChallenge] Initializing weekly state for week:', currentWeek);
+      console.log('[WeeklyChallenge] Current state.weekly:', state?.weekly);
+
+      if (!state?.weekly) {
+        console.log('[WeeklyChallenge] No weekly state found. Initializing...');
+        dispatch({
+          type: 'UPDATE_WEEKLY',
+          payload: { weekNumber: currentWeek, solvedIds: [] },
+        });
+      } else if (state.weekly.weekNumber < currentWeek) {
+        // NEW WEEK DETECTED - Reset progress
+        console.log('[WeeklyChallenge] New week detected! Resetting progress.', state.weekly.weekNumber, '→', currentWeek);
+        dispatch({
+          type: 'UPDATE_WEEKLY',
+          payload: { weekNumber: currentWeek, solvedIds: [] },
+        });
+      } else if (state.weekly.weekNumber === currentWeek) {
+        // SAME WEEK - PRESERVE PROGRESS
+        console.log('[WeeklyChallenge] Same week - preserving solved count:', state.weekly.solvedIds.length);
+      } else {
+        // Future week on stored data (shouldn't happen, but handle it)
+        console.log('[WeeklyChallenge] Stored week is ahead of current. Resetting to current week.');
+        dispatch({
+          type: 'UPDATE_WEEKLY',
+          payload: { weekNumber: currentWeek, solvedIds: [] },
+        });
+      }
+
+      setWeeklyInitialized(true);
+    } catch (err) {
+      console.error('[WeeklyChallenge] Error initializing weekly state:', err);
+      setWeeklyInitialized(true); // Mark as initialized even on error to avoid infinite loops
+    }
+  }, [state?.weekly?.weekNumber, currentWeek, weeklyInitialized, dispatch]);
+
+  // Populate feedback for already-solved challenges on mount/state change
+  useEffect(() => {
+    if (!state?.weekly?.solvedIds || state.weekly.solvedIds.length === 0) return;
+    
+    try {
+      const newFeedback: Record<string, { isCorrect: boolean; message: string }> = {};
+      
+      state.weekly.solvedIds.forEach((solvedId) => {
+        // Only add feedback if not already present (don't override user's current submission)
+        if (!feedback[solvedId]) {
+          newFeedback[solvedId] = {
+            isCorrect: true,
+            message: '✓ Completed! Great job!',
+          };
+        }
+      });
+
+      // Only update if there are new feedback items to add
+      if (Object.keys(newFeedback).length > 0) {
+        console.log('[WeeklyChallenge] Restoring feedback for solved challenges:', Object.keys(newFeedback));
+        setFeedback((f) => ({ ...f, ...newFeedback }));
+      }
+    } catch (err) {
+      console.error('[WeeklyChallenge] Error populating feedback:', err);
+    }
+  }, [state?.weekly?.solvedIds]);
 
   const handleCTFSubmit = (challengeId: string, userAnswer: string, correctAnswer: string) => {
+    console.log('[WeeklyChallenge] CTF Submit:', { challengeId, weekNumber: currentWeek, stateWeekNumber: state?.weekly?.weekNumber });
+    
     const userContent = userAnswer.replace(/^[Cc][Ss][Aa]\{|\}$/g, '').trim();
     const correctContent = correctAnswer.replace(/^[Cc][Ss][Aa]\{|\}$/g, '').trim();
     const isCorrect =
@@ -75,19 +138,38 @@ export default function WeeklyChallengeComponent() {
       },
     }));
 
-    if (isCorrect && state && state.weekly && !state.weekly.solvedIds.includes(challengeId)) {
-      markWeeklySolved(challengeId);
-      syncToLeaderboard(user || null);
-      // Auto-advance to next question after a short delay
+    // Mark solved if correct
+    if (isCorrect) {
+      console.log('[WeeklyChallenge] Answer correct! Attempting to mark as solved:', challengeId);
+      
+      const alreadySolved = state?.weekly?.solvedIds?.includes(challengeId);
+      if (alreadySolved) {
+        console.log('[WeeklyChallenge] Already marked as solved');
+      } else if (state?.weekly) {
+        console.log('[WeeklyChallenge] Marking solved');
+        markWeeklySolved(challengeId);
+        setTimeout(() => {
+          syncToLeaderboard(user || null);
+        }, 250);
+      } else {
+        console.warn('[WeeklyChallenge] state.weekly undefined, using fallback');
+        dispatch({ type: 'MARK_WEEKLY_SOLVED', payload: challengeId });
+        setTimeout(() => {
+          syncToLeaderboard(user || null);
+        }, 250);
+      }
+      
       setTimeout(() => {
         if (selectedQuestion < totalCount) {
           setSelectedQuestion(selectedQuestion + 1);
         }
-      }, 1000);
+      }, 1500);
     }
   };
 
   const handlePhishSubmit = (challengeId: string, userGuess: boolean, isPhish: boolean) => {
+    console.log('[WeeklyChallenge] Phish Submit:', { challengeId, weekNumber: currentWeek, stateWeekNumber: state?.weekly?.weekNumber });
+    
     const isCorrect = userGuess === isPhish;
     setFeedback((f) => ({
       ...f,
@@ -97,19 +179,37 @@ export default function WeeklyChallengeComponent() {
       },
     }));
 
-    if (isCorrect && state && state.weekly && !state.weekly.solvedIds.includes(challengeId)) {
-      markWeeklySolved(challengeId);
-      syncToLeaderboard(user || null);
-      // Auto-advance to next question after a short delay
+    if (isCorrect) {
+      console.log('[WeeklyChallenge] Answer correct! Attempting to mark as solved:', challengeId);
+      
+      const alreadySolved = state?.weekly?.solvedIds?.includes(challengeId);
+      if (alreadySolved) {
+        console.log('[WeeklyChallenge] Already marked as solved');
+      } else if (state?.weekly) {
+        console.log('[WeeklyChallenge] Marking solved');
+        markWeeklySolved(challengeId);
+        setTimeout(() => {
+          syncToLeaderboard(user || null);
+        }, 250);
+      } else {
+        console.warn('[WeeklyChallenge] state.weekly undefined, using fallback');
+        dispatch({ type: 'MARK_WEEKLY_SOLVED', payload: challengeId });
+        setTimeout(() => {
+          syncToLeaderboard(user || null);
+        }, 250);
+      }
+      
       setTimeout(() => {
         if (selectedQuestion < totalCount) {
           setSelectedQuestion(selectedQuestion + 1);
         }
-      }, 1000);
+      }, 1500);
     }
   };
 
   const handleCodeSubmit = (challengeId: string, userAnswer: number, correctAnswer: number) => {
+    console.log('[WeeklyChallenge] Code Submit:', { challengeId, weekNumber: currentWeek, stateWeekNumber: state?.weekly?.weekNumber });
+    
     const isCorrect = userAnswer === correctAnswer;
     setFeedback((f) => ({
       ...f,
@@ -119,19 +219,37 @@ export default function WeeklyChallengeComponent() {
       },
     }));
 
-    if (isCorrect && state && state.weekly && !state.weekly.solvedIds.includes(challengeId)) {
-      markWeeklySolved(challengeId);
-      syncToLeaderboard(user || null);
-      // Auto-advance to next question after a short delay
+    if (isCorrect) {
+      console.log('[WeeklyChallenge] Answer correct! Attempting to mark as solved:', challengeId);
+      
+      const alreadySolved = state?.weekly?.solvedIds?.includes(challengeId);
+      if (alreadySolved) {
+        console.log('[WeeklyChallenge] Already marked as solved');
+      } else if (state?.weekly) {
+        console.log('[WeeklyChallenge] Marking solved');
+        markWeeklySolved(challengeId);
+        setTimeout(() => {
+          syncToLeaderboard(user || null);
+        }, 250);
+      } else {
+        console.warn('[WeeklyChallenge] state.weekly undefined, using fallback');
+        dispatch({ type: 'MARK_WEEKLY_SOLVED', payload: challengeId });
+        setTimeout(() => {
+          syncToLeaderboard(user || null);
+        }, 250);
+      }
+      
       setTimeout(() => {
         if (selectedQuestion < totalCount) {
           setSelectedQuestion(selectedQuestion + 1);
         }
-      }, 1000);
+      }, 1500);
     }
   };
 
   const handleQuizSubmit = (challengeId: string, userAnswer: number, correctAnswer: number) => {
+    console.log('[WeeklyChallenge] Quiz Submit:', { challengeId, weekNumber: currentWeek, stateWeekNumber: state?.weekly?.weekNumber });
+    
     const isCorrect = userAnswer === correctAnswer;
     setFeedback((f) => ({
       ...f,
@@ -141,15 +259,31 @@ export default function WeeklyChallengeComponent() {
       },
     }));
 
-    if (isCorrect && state && state.weekly && !state.weekly.solvedIds.includes(challengeId)) {
-      markWeeklySolved(challengeId);
-      syncToLeaderboard(user || null);
-      // Auto-advance to next question after a short delay
+    if (isCorrect) {
+      console.log('[WeeklyChallenge] Answer correct! Attempting to mark as solved:', challengeId);
+      
+      const alreadySolved = state?.weekly?.solvedIds?.includes(challengeId);
+      if (alreadySolved) {
+        console.log('[WeeklyChallenge] Already marked as solved');
+      } else if (state?.weekly) {
+        console.log('[WeeklyChallenge] Marking solved');
+        markWeeklySolved(challengeId);
+        setTimeout(() => {
+          syncToLeaderboard(user || null);
+        }, 250);
+      } else {
+        console.warn('[WeeklyChallenge] state.weekly undefined, using fallback');
+        dispatch({ type: 'MARK_WEEKLY_SOLVED', payload: challengeId });
+        setTimeout(() => {
+          syncToLeaderboard(user || null);
+        }, 250);
+      }
+      
       setTimeout(() => {
         if (selectedQuestion < totalCount) {
           setSelectedQuestion(selectedQuestion + 1);
         }
-      }, 1000);
+      }, 1500);
     }
   };
 
@@ -352,8 +486,9 @@ export default function WeeklyChallengeComponent() {
                 <input
                   type="text"
                   placeholder="Enter the flag"
+                  disabled={state?.weekly?.solvedIds?.includes(currentChallenge.id)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === 'Enter' && !state?.weekly?.solvedIds?.includes(currentChallenge.id)) {
                       const answer = answers[currentChallenge.id]?.answer as string || '';
                       handleCTFSubmit(currentChallenge.id, answer, (currentChallenge.data as any).flag);
                     }
@@ -368,16 +503,25 @@ export default function WeeklyChallengeComponent() {
                       },
                     }))
                   }
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                  className={`w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 ${
+                    state?.weekly?.solvedIds?.includes(currentChallenge.id)
+                      ? 'opacity-50 cursor-not-allowed'
+                      : ''
+                  }`}
                 />
                 <button
                   onClick={() => {
                     const answer = answers[currentChallenge.id]?.answer as string || '';
                     handleCTFSubmit(currentChallenge.id, answer, (currentChallenge.data as any).flag);
                   }}
-                  className="w-full px-4 py-2 bg-purple-600/30 text-purple-300 border border-purple-400/50 rounded hover:bg-purple-600/50 font-medium transition-all"
+                  disabled={state?.weekly?.solvedIds?.includes(currentChallenge.id)}
+                  className={`w-full px-4 py-2 rounded font-medium transition-all ${
+                    state?.weekly?.solvedIds?.includes(currentChallenge.id)
+                      ? 'bg-green-600/30 text-green-300 border border-green-400/50 opacity-50 cursor-not-allowed'
+                      : 'bg-purple-600/30 text-purple-300 border border-purple-400/50 hover:bg-purple-600/50'
+                  }`}
                 >
-                  Submit Flag
+                  {state?.weekly?.solvedIds?.includes(currentChallenge.id) ? '✓ Completed' : 'Submit Flag'}
                 </button>
               </div>
             )}
@@ -388,13 +532,23 @@ export default function WeeklyChallengeComponent() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => handlePhishSubmit(currentChallenge.id, true, (currentChallenge.data as any).isPhish)}
-                    className="flex-1 px-4 py-3 bg-red-600/20 text-red-300 border border-red-400/50 rounded hover:bg-red-600/40 font-medium transition-all"
+                    disabled={state?.weekly?.solvedIds?.includes(currentChallenge.id)}
+                    className={`flex-1 px-4 py-3 rounded font-medium transition-all ${
+                      state?.weekly?.solvedIds?.includes(currentChallenge.id)
+                        ? 'bg-red-600/20 text-red-300 border border-red-400/50 opacity-50 cursor-not-allowed'
+                        : 'bg-red-600/20 text-red-300 border border-red-400/50 hover:bg-red-600/40'
+                    }`}
                   >
                     🚨 Phishing
                   </button>
                   <button
                     onClick={() => handlePhishSubmit(currentChallenge.id, false, (currentChallenge.data as any).isPhish)}
-                    className="flex-1 px-4 py-3 bg-green-600/20 text-green-300 border border-green-400/50 rounded hover:bg-green-600/40 font-medium transition-all"
+                    disabled={state?.weekly?.solvedIds?.includes(currentChallenge.id)}
+                    className={`flex-1 px-4 py-3 rounded font-medium transition-all ${
+                      state?.weekly?.solvedIds?.includes(currentChallenge.id)
+                        ? 'bg-green-600/20 text-green-300 border border-green-400/50 opacity-50 cursor-not-allowed'
+                        : 'bg-green-600/20 text-green-300 border border-green-400/50 hover:bg-green-600/40'
+                    }`}
                   >
                     ✅ Legitimate
                   </button>
@@ -410,7 +564,12 @@ export default function WeeklyChallengeComponent() {
                     <button
                       key={idx}
                       onClick={() => handleCodeSubmit(currentChallenge.id, idx, (currentChallenge.data as any).answer)}
-                      className="w-full text-left px-4 py-3 bg-slate-700/50 border border-slate-600 rounded hover:bg-blue-600/30 hover:border-blue-400/50 text-slate-300 transition-all"
+                      disabled={state?.weekly?.solvedIds?.includes(currentChallenge.id)}
+                      className={`w-full text-left px-4 py-3 rounded transition-all ${
+                        state?.weekly?.solvedIds?.includes(currentChallenge.id)
+                          ? 'bg-blue-600/20 text-blue-300 border border-blue-400/50 opacity-50 cursor-not-allowed'
+                          : 'bg-slate-700/50 border border-slate-600 hover:bg-blue-600/30 hover:border-blue-400/50 text-slate-300'
+                      }`}
                     >
                       <span className="font-semibold">{String.fromCharCode(65 + idx)}.</span> {option}
                     </button>
@@ -427,7 +586,12 @@ export default function WeeklyChallengeComponent() {
                     <button
                       key={idx}
                       onClick={() => handleQuizSubmit(currentChallenge.id, idx, (currentChallenge.data as any).answer)}
-                      className="w-full text-left px-4 py-3 bg-slate-700/50 border border-slate-600 rounded hover:bg-green-600/30 hover:border-green-400/50 text-slate-300 transition-all"
+                      disabled={state?.weekly?.solvedIds?.includes(currentChallenge.id)}
+                      className={`w-full text-left px-4 py-3 rounded transition-all ${
+                        state?.weekly?.solvedIds?.includes(currentChallenge.id)
+                          ? 'bg-green-600/20 text-green-300 border border-green-400/50 opacity-50 cursor-not-allowed'
+                          : 'bg-slate-700/50 border border-slate-600 hover:bg-green-600/30 hover:border-green-400/50 text-slate-300'
+                      }`}
                     >
                       <span className="font-semibold">{String.fromCharCode(65 + idx)}.</span> {choice}
                     </button>
