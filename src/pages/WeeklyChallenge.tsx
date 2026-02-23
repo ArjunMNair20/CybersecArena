@@ -108,169 +108,160 @@ export default function WeeklyChallengeComponent() {
   }, [state?.weekly?.weekNumber, currentWeek, weeklyInitialized, dispatch]);
 
   const handleCTFSubmit = (challengeId: string, userAnswer: string, correctAnswer: string) => {
-    console.log('[WeeklyChallenge] CTF Submit:', { challengeId, weekNumber: currentWeek, stateWeekNumber: state?.weekly?.weekNumber });
-    
-    const userContent = userAnswer.replace(/^[Cc][Ss][Aa]\{|\}$/g, '').trim();
-    const correctContent = correctAnswer.replace(/^[Cc][Ss][Aa]\{|\}$/g, '').trim();
-    const isCorrect =
-      userAnswer === correctContent ||
-      userAnswer.toLowerCase() === correctContent.toLowerCase() ||
-      userContent === correctContent;
-
-    setFeedback((f) => ({
-      ...f,
-      [challengeId]: {
-        isCorrect,
-        message: isCorrect ? '✓ Correct! Well done!' : '✗ Incorrect. Try again or view hint.',
-      },
-    }));
-
-    // Mark solved if correct
-    if (isCorrect) {
-      console.log('[WeeklyChallenge] Answer correct! Attempting to mark as solved:', challengeId);
+    try {
+      console.log('[WeeklyChallenge] CTF Submit:', { challengeId });
       
-      const alreadySolved = state?.weekly?.solvedIds?.includes(challengeId);
-      if (alreadySolved) {
-        console.log('[WeeklyChallenge] Already marked as solved');
-      } else if (state?.weekly) {
-        console.log('[WeeklyChallenge] Marking solved');
+      const userContent = userAnswer.replace(/^[Cc][Ss][Aa]\{|\}$/g, '').trim();
+      const correctContent = correctAnswer.replace(/^[Cc][Ss][Aa]\{|\}$/g, '').trim();
+      const isCorrect =
+        userAnswer === correctContent ||
+        userAnswer.toLowerCase() === correctContent.toLowerCase() ||
+        userContent === correctContent;
+
+      // Always update feedback first
+      setFeedback((f) => ({
+        ...f,
+        [challengeId]: {
+          isCorrect,
+          message: isCorrect ? '✓ Correct! Well done!' : '✗ Incorrect. Try again or view hint.',
+        },
+      }));
+
+      // Mark solved if correct
+      if (isCorrect && !state?.weekly?.solvedIds?.includes(challengeId)) {
+        console.log('[WeeklyChallenge] Marking as solved:', challengeId);
         markWeeklySolved(challengeId);
+        
+        // Sync to leaderboard after a tiny delay
         setTimeout(() => {
-          syncToLeaderboard(user || null);
-        }, 250);
-      } else {
-        console.warn('[WeeklyChallenge] state.weekly undefined, using fallback');
-        dispatch({ type: 'MARK_WEEKLY_SOLVED', payload: challengeId });
+          try {
+            syncToLeaderboard(user || null);
+          } catch (e) {
+            console.error('[WeeklyChallenge] Leaderboard sync error:', e);
+          }
+        }, 100);
+        
+        // Move to next question
         setTimeout(() => {
-          syncToLeaderboard(user || null);
-        }, 250);
+          if (selectedQuestion < totalCount) {
+            setSelectedQuestion(selectedQuestion + 1);
+          }
+        }, 1000);
       }
-      
-      setTimeout(() => {
-        if (selectedQuestion < totalCount) {
-          setSelectedQuestion(selectedQuestion + 1);
-        }
-      }, 1500);
+    } catch (error) {
+      console.error('[WeeklyChallenge] Error in handleCTFSubmit:', error);
+      setError('Error submitting answer. Please refresh and try again.');
     }
   };
 
   const handlePhishSubmit = (challengeId: string, userGuess: boolean, isPhish: boolean) => {
-    console.log('[WeeklyChallenge] Phish Submit:', { challengeId, weekNumber: currentWeek, stateWeekNumber: state?.weekly?.weekNumber });
-    
-    const isCorrect = userGuess === isPhish;
-    setFeedback((f) => ({
-      ...f,
-      [challengeId]: {
-        isCorrect,
-        message: isCorrect ? '✓ Correct! Good eye!' : `✗ Incorrect. This ${isPhish ? 'is' : 'is not'} a phishing email.`,
-      },
-    }));
+    try {
+      console.log('[WeeklyChallenge] Phish Submit:', { challengeId });
+      
+      const isCorrect = userGuess === isPhish;
+      setFeedback((f) => ({
+        ...f,
+        [challengeId]: {
+          isCorrect,
+          message: isCorrect ? '✓ Correct! Good eye!' : `✗ Incorrect. This ${isPhish ? 'is' : 'is not'} a phishing email.`,
+        },
+      }));
 
-    if (isCorrect) {
-      console.log('[WeeklyChallenge] Answer correct! Attempting to mark as solved:', challengeId);
-      
-      const alreadySolved = state?.weekly?.solvedIds?.includes(challengeId);
-      if (alreadySolved) {
-        console.log('[WeeklyChallenge] Already marked as solved');
-      } else if (state?.weekly) {
-        console.log('[WeeklyChallenge] Marking solved');
+      if (isCorrect && !state?.weekly?.solvedIds?.includes(challengeId)) {
+        console.log('[WeeklyChallenge] Marking as solved:', challengeId);
         markWeeklySolved(challengeId);
+        
         setTimeout(() => {
-          syncToLeaderboard(user || null);
-        }, 250);
-      } else {
-        console.warn('[WeeklyChallenge] state.weekly undefined, using fallback');
-        dispatch({ type: 'MARK_WEEKLY_SOLVED', payload: challengeId });
+          try {
+            syncToLeaderboard(user || null);
+          } catch (e) {
+            console.error('[WeeklyChallenge] Leaderboard sync error:', e);
+          }
+        }, 100);
+        
         setTimeout(() => {
-          syncToLeaderboard(user || null);
-        }, 250);
+          if (selectedQuestion < totalCount) {
+            setSelectedQuestion(selectedQuestion + 1);
+          }
+        }, 1000);
       }
-      
-      setTimeout(() => {
-        if (selectedQuestion < totalCount) {
-          setSelectedQuestion(selectedQuestion + 1);
-        }
-      }, 1500);
+    } catch (error) {
+      console.error('[WeeklyChallenge] Error in handlePhishSubmit:', error);
+      setError('Error submitting answer. Please refresh and try again.');
     }
   };
 
   const handleCodeSubmit = (challengeId: string, userAnswer: number, correctAnswer: number) => {
-    console.log('[WeeklyChallenge] Code Submit:', { challengeId, weekNumber: currentWeek, stateWeekNumber: state?.weekly?.weekNumber });
-    
-    const isCorrect = userAnswer === correctAnswer;
-    setFeedback((f) => ({
-      ...f,
-      [challengeId]: {
-        isCorrect,
-        message: isCorrect ? '✓ Correct! Great security knowledge!' : '✗ Incorrect. Review the explanation.',
-      },
-    }));
+    try {
+      console.log('[WeeklyChallenge] Code Submit:', { challengeId });
+      
+      const isCorrect = userAnswer === correctAnswer;
+      setFeedback((f) => ({
+        ...f,
+        [challengeId]: {
+          isCorrect,
+          message: isCorrect ? '✓ Correct! Great security knowledge!' : '✗ Incorrect. Review the explanation.',
+        },
+      }));
 
-    if (isCorrect) {
-      console.log('[WeeklyChallenge] Answer correct! Attempting to mark as solved:', challengeId);
-      
-      const alreadySolved = state?.weekly?.solvedIds?.includes(challengeId);
-      if (alreadySolved) {
-        console.log('[WeeklyChallenge] Already marked as solved');
-      } else if (state?.weekly) {
-        console.log('[WeeklyChallenge] Marking solved');
+      if (isCorrect && !state?.weekly?.solvedIds?.includes(challengeId)) {
+        console.log('[WeeklyChallenge] Marking as solved:', challengeId);
         markWeeklySolved(challengeId);
+        
         setTimeout(() => {
-          syncToLeaderboard(user || null);
-        }, 250);
-      } else {
-        console.warn('[WeeklyChallenge] state.weekly undefined, using fallback');
-        dispatch({ type: 'MARK_WEEKLY_SOLVED', payload: challengeId });
+          try {
+            syncToLeaderboard(user || null);
+          } catch (e) {
+            console.error('[WeeklyChallenge] Leaderboard sync error:', e);
+          }
+        }, 100);
+        
         setTimeout(() => {
-          syncToLeaderboard(user || null);
-        }, 250);
+          if (selectedQuestion < totalCount) {
+            setSelectedQuestion(selectedQuestion + 1);
+          }
+        }, 1000);
       }
-      
-      setTimeout(() => {
-        if (selectedQuestion < totalCount) {
-          setSelectedQuestion(selectedQuestion + 1);
-        }
-      }, 1500);
+    } catch (error) {
+      console.error('[WeeklyChallenge] Error in handleCodeSubmit:', error);
+      setError('Error submitting answer. Please refresh and try again.');
     }
   };
 
   const handleQuizSubmit = (challengeId: string, userAnswer: number, correctAnswer: number) => {
-    console.log('[WeeklyChallenge] Quiz Submit:', { challengeId, weekNumber: currentWeek, stateWeekNumber: state?.weekly?.weekNumber });
-    
-    const isCorrect = userAnswer === correctAnswer;
-    setFeedback((f) => ({
-      ...f,
-      [challengeId]: {
-        isCorrect,
-        message: isCorrect ? '✓ Correct! Well done!' : '✗ Incorrect. Study the explanation.',
-      },
-    }));
+    try {
+      console.log('[WeeklyChallenge] Quiz Submit:', { challengeId });
+      
+      const isCorrect = userAnswer === correctAnswer;
+      setFeedback((f) => ({
+        ...f,
+        [challengeId]: {
+          isCorrect,
+          message: isCorrect ? '✓ Correct! Well done!' : '✗ Incorrect. Study the explanation.',
+        },
+      }));
 
-    if (isCorrect) {
-      console.log('[WeeklyChallenge] Answer correct! Attempting to mark as solved:', challengeId);
-      
-      const alreadySolved = state?.weekly?.solvedIds?.includes(challengeId);
-      if (alreadySolved) {
-        console.log('[WeeklyChallenge] Already marked as solved');
-      } else if (state?.weekly) {
-        console.log('[WeeklyChallenge] Marking solved');
+      if (isCorrect && !state?.weekly?.solvedIds?.includes(challengeId)) {
+        console.log('[WeeklyChallenge] Marking as solved:', challengeId);
         markWeeklySolved(challengeId);
+        
         setTimeout(() => {
-          syncToLeaderboard(user || null);
-        }, 250);
-      } else {
-        console.warn('[WeeklyChallenge] state.weekly undefined, using fallback');
-        dispatch({ type: 'MARK_WEEKLY_SOLVED', payload: challengeId });
+          try {
+            syncToLeaderboard(user || null);
+          } catch (e) {
+            console.error('[WeeklyChallenge] Leaderboard sync error:', e);
+          }
+        }, 100);
+        
         setTimeout(() => {
-          syncToLeaderboard(user || null);
-        }, 250);
+          if (selectedQuestion < totalCount) {
+            setSelectedQuestion(selectedQuestion + 1);
+          }
+        }, 1000);
       }
-      
-      setTimeout(() => {
-        if (selectedQuestion < totalCount) {
-          setSelectedQuestion(selectedQuestion + 1);
-        }
-      }, 1500);
+    } catch (error) {
+      console.error('[WeeklyChallenge] Error in handleQuizSubmit:', error);
+      setError('Error submitting answer. Please refresh and try again.');
     }
   };
 
