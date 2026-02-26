@@ -381,7 +381,7 @@ function WeeklyChallengeContent() {
         </div>
       )}
 
-      {isLoading && !error && (
+      {(isLoading || !isLoaded) && !error && (
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -390,7 +390,7 @@ function WeeklyChallengeContent() {
         </div>
       )}
       
-      {!isLoading && !error && weeklyChallenges.length > 0 && (
+      {!isLoading && isLoaded && !error && weeklyChallenges.length > 0 && (
       <>
         {/* Completion splash temporarily disabled while debugging white screen */}
         {showCompletionSplash ? (

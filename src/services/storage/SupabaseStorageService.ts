@@ -69,6 +69,8 @@ export class SupabaseStorageService implements IProgressStorage {
                 },
                 firewall: { bestScore: data.firewall_best_score || 0 },
                 badges: data.badges || [],
+                // IMPORTANT: Preserve weekly data from localStorage (not stored in Supabase)
+                weekly: localProgress?.weekly || { weekNumber: 0, solvedIds: [] },
               };
 
               // Sync Supabase data to localStorage to keep them in sync
@@ -111,6 +113,7 @@ export class SupabaseStorageService implements IProgressStorage {
               quiz_difficulty: state.quiz.difficulty,
               firewall_best_score: state.firewall.bestScore,
               badges: state.badges,
+              // Note: weekly data is NOT synced to Supabase (ephemeral, resets each week)
             };
 
             const { error } = await supabase
